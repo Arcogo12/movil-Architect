@@ -19,88 +19,46 @@ class PendingPlanoLoadingBanner extends StatelessWidget {
   final double progress;
   final VoidCallback? onCancel;
 
+  static const _previewSize = 72.0;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final percent = (progress * 100).clamp(0, 100).round();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-      child: Material(
-        color: isDark
-            ? colorScheme.surfaceContainerHighest
-            : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: CircularProgressIndicator(
-                  value: progress > 0 ? progress : null,
-                  strokeWidth: 3,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Cargando plano…',
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      fileName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                width: _previewSize,
+                height: _previewSize,
+                child: ColoredBox(
+                  color: colorScheme.surfaceContainerHighest,
+                  child: Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
                         value: progress > 0 ? progress : null,
-                        minHeight: 5,
-                        backgroundColor: colorScheme.surfaceContainerHigh,
+                        strokeWidth: 3,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$percent%',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              if (onCancel != null)
-                IconButton(
-                  onPressed: onCancel,
-                  icon: Icon(
-                    Icons.close_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  tooltip: 'Cancelar',
-                ),
-            ],
-          ),
+            ),
+            if (onCancel != null)
+              Positioned(
+                top: -6,
+                right: -6,
+                child: _DismissChip(onTap: onCancel!),
+              ),
+          ],
         ),
       ),
     );
@@ -121,89 +79,79 @@ class PendingPlanoBanner extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDismiss;
 
+  static const _previewSize = 72.0;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
     final isImage = isPlanoImageFile(fileName);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-      child: Material(
-        color: isDark
-            ? colorScheme.surfaceContainerHighest
-            : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
                   child: SizedBox(
-                    width: 44,
-                    height: 44,
+                    width: _previewSize,
+                    height: _previewSize,
                     child: isImage
                         ? Image.file(file, fit: BoxFit.cover)
                         : ColoredBox(
-                            color: colorScheme.surfaceContainerHigh,
+                            color: colorScheme.surfaceContainerHighest,
                             child: Icon(
                               Icons.description_outlined,
                               color: colorScheme.onSurfaceVariant,
+                              size: 32,
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tu plano',
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        fileName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Escribe abajo y envía para analizar',
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: onDismiss,
-                  icon: Icon(
-                    Icons.close_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  tooltip: 'Quitar plano',
-                ),
-              ],
+              ),
             ),
+            Positioned(
+              top: -6,
+              right: -6,
+              child: _DismissChip(onTap: onDismiss),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DismissChip extends StatelessWidget {
+  const _DismissChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.surface,
+      elevation: 2,
+      shadowColor: Colors.black26,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            Icons.close_rounded,
+            size: 16,
+            color: colorScheme.onSurface,
           ),
         ),
       ),
@@ -233,11 +181,12 @@ class DashboardTopBar extends StatelessWidget {  const DashboardTopBar({
             icon: Icon(Icons.menu_rounded, size: 26, color: iconColor),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: onNewChatTap,
-            tooltip: 'Nuevo chat',
-            icon: Icon(Icons.edit_outlined, size: 24, color: iconColor),
-          ),
+          if (onNewChatTap != null)
+            IconButton(
+              onPressed: onNewChatTap,
+              tooltip: 'Nuevo chat',
+              icon: Icon(Icons.edit_outlined, size: 24, color: iconColor),
+            ),
         ],
       ),
     );
@@ -262,6 +211,62 @@ class DashboardHero extends StatelessWidget {
           fontWeight: FontWeight.w800,
           height: 1.2,
         ),
+      ),
+    );
+  }
+}
+
+class StageAdminHero extends StatelessWidget {
+  const StageAdminHero({super.key, this.onNewProject});
+
+  final VoidCallback? onNewProject;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final buttonBg = isDark ? colorScheme.onSurface : Colors.black;
+    final buttonFg = isDark ? colorScheme.surface : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Lleva el control de tu proyecto',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Material(
+            color: buttonBg,
+            borderRadius: BorderRadius.circular(999),
+            child: InkWell(
+              onTap: onNewProject,
+              borderRadius: BorderRadius.circular(999),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 16,
+                ),
+                child: Text(
+                  'Nuevo proyecto',
+                  style: TextStyle(
+                    color: buttonFg,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

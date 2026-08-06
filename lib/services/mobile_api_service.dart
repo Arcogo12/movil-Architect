@@ -30,7 +30,10 @@ class MobileApiService {
       );
       final data = response.data ?? {};
       if (data['ok'] == false) {
-        throw ApiException(message: 'No se pudo obtener el perfil.');
+        throw ApiException(
+          message: data['message'] as String? ??
+              'No se pudo obtener el perfil del usuario.',
+        );
       }
       return MeResponse.fromJson(data);
     } on DioException catch (error) {

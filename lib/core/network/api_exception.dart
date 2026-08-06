@@ -27,7 +27,9 @@ class ApiException implements Exception {
     final data = response?.data;
 
     String message = 'Ocurrió un error inesperado.';
-    if (data is Map && data['detail'] != null) {
+    if (data is String) {
+      message = data.isNotEmpty ? data : message;
+    } else if (data is Map && data['detail'] != null) {
       final detail = data['detail'];
       if (detail is String) {
         message = detail;
@@ -45,7 +47,9 @@ class ApiException implements Exception {
 
     switch (statusCode) {
       case 401:
-        message = 'Correo o contraseña incorrectos';
+        message = message == 'Ocurrió un error inesperado.'
+            ? 'Sesión expirada. Inicia sesión de nuevo.'
+            : message;
       case 402:
         message = 'Has alcanzado el límite mensual de análisis.';
       case 413:
@@ -54,8 +58,20 @@ class ApiException implements Exception {
         message = message == 'Ocurrió un error inesperado.'
             ? 'Formato no soportado o archivo inválido.'
             : message;
+      case 404:
+        message = message == 'Ocurrió un error inesperado.' ||
+                message == 'Not Found'
+            ? 'Ruta no encontrada en el servidor. Verifica la URL en Ajustes.'
+            : message;
+      case 500:
+      case 502:
       case 503:
-        message = 'El servidor no está configurado correctamente.';
+        if (message == 'Ocurrió un error inesperado.' ||
+            message == 'Internal Server Error') {
+          message = statusCode == 503
+              ? 'El servidor no está configurado correctamente.'
+              : 'Error en el servidor al procesar la solicitud.';
+        }
     }
 
     return ApiException(message: message, statusCode: statusCode);

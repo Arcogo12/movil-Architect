@@ -8,9 +8,14 @@ import 'package:movil_architect/views/login/login_view.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
 
 class SettingsView extends StatefulWidget {
-  const SettingsView({super.key, this.controller});
+  const SettingsView({
+    super.key,
+    this.controller,
+    this.onAllChatsDeleted,
+  });
 
   final DashboardController? controller;
+  final VoidCallback? onAllChatsDeleted;
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -59,6 +64,80 @@ class _SettingsViewState extends State<SettingsView> {
       MaterialPageRoute<void>(builder: (_) => const LoginView()),
       (_) => false,
     );
+  }
+
+  Future<void> _confirmDeleteAllChats() async {
+    final count = _dashboardController.chats.length;
+    if (count == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay conversaciones para eliminar')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar historial de chats'),
+        content: Text(
+          '¿Borrar las $count conversaciones?\n'
+          'Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Eliminar todo',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Eliminando conversaciones…'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await _dashboardController.deleteAllChats();
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onAllChatsDeleted?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Historial de chats eliminado')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudieron eliminar todas las conversaciones'),
+        ),
+      );
+    }
   }
 
   @override
@@ -135,6 +214,36 @@ class _SettingsViewState extends State<SettingsView> {
                           ? Icons.dark_mode_outlined
                           : Icons.light_mode_outlined,
                       color: colorScheme.onSurface,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: ListTile(
+                    onTap: _confirmDeleteAllChats,
+                    leading: Icon(
+                      Icons.delete_sweep_outlined,
+                      color: colorScheme.error,
+                    ),
+                    title: Text(
+                      'Eliminar historial de chats',
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _dashboardController.chats.isEmpty
+                          ? 'No hay conversaciones guardadas'
+                          : '${_dashboardController.chats.length} conversaciones en el historial',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),

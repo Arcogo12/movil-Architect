@@ -21,6 +21,7 @@ class ChatMessagesList extends StatelessWidget {
     this.pendingPlanoProgress,
     this.onDismissPendingPlano,
     this.onPendingPlanoTap,
+    this.onRefresh,
     this.emptyMessage = 'Esta conversación aún no tiene mensajes.',
   });
 
@@ -34,6 +35,7 @@ class ChatMessagesList extends StatelessWidget {
   final double? pendingPlanoProgress;
   final VoidCallback? onDismissPendingPlano;
   final VoidCallback? onPendingPlanoTap;
+  final Future<void> Function()? onRefresh;
   final String emptyMessage;
 
   bool get _hasPendingPlano =>
@@ -149,20 +151,43 @@ class ChatMessagesList extends StatelessWidget {
         !waiting;
 
     if (isEmpty) {
-      return Center(
+      final empty = Center(
         child: Text(
           emptyMessage,
           style: const TextStyle(color: AppColors.muted),
         ),
       );
+      if (onRefresh == null) return empty;
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return RefreshIndicator(
+            onRefresh: onRefresh!,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: empty,
+              ),
+            ),
+          );
+        },
+      );
     }
 
-    return ListView.builder(
+    final listView = ListView.builder(
       controller: scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       itemCount: _itemCount(pending, waiting),
       itemBuilder: (context, index) =>
           _buildItem(context, index, pending, waiting),
+    );
+
+    if (onRefresh == null) return listView;
+
+    return RefreshIndicator(
+      onRefresh: onRefresh!,
+      child: listView,
     );
   }
 }

@@ -41,14 +41,15 @@ class ChatController extends ChangeNotifier {
       _detail = await _mobileApiService.getChat(chatId);
       if (_state != ChatState.sending) {
         _state = ChatState.success;
+        _errorMessage = null;
       }
     } on ApiException catch (error) {
-      if (showLoading) {
+      if (_state != ChatState.sending) {
         _state = ChatState.error;
         _errorMessage = error.message;
       }
     } catch (_) {
-      if (showLoading) {
+      if (_state != ChatState.sending) {
         _state = ChatState.error;
         _errorMessage = 'No se pudo cargar la conversación.';
       }

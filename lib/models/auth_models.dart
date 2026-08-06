@@ -13,7 +13,7 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as int,
+      id: (json['id'] as num?)?.toInt() ?? 0,
       email: json['email'] as String? ?? '',
       fullName: json['full_name'] as String? ?? '',
       role: json['role'] as String? ?? 'user',
@@ -164,6 +164,20 @@ class HealthResponse {
       service: json['service'] as String? ?? '',
       message: json['message'] as String? ?? '',
       version: json['version'] as String? ?? '',
+    );
+  }
+
+  /// Respuesta de GET /api/health (backend web).
+  factory HealthResponse.fromApiHealth(Map<String, dynamic> json) {
+    final dbOk = json['ok'] as bool? ?? json['database'] as bool? ?? false;
+    final hints = json['hints'];
+    final hint = hints is List && hints.isNotEmpty ? hints.first.toString() : '';
+
+    return HealthResponse(
+      ok: dbOk,
+      service: 'architect',
+      message: hint.isNotEmpty ? hint : 'Servidor ARCHITECT en línea',
+      version: '2.0',
     );
   }
 }

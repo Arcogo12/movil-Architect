@@ -6,6 +6,7 @@ import 'package:movil_architect/core/network/api_exception.dart';
 import 'package:movil_architect/models/analysis_models.dart';
 import 'package:movil_architect/models/auth_models.dart';
 import 'package:movil_architect/models/chat_models.dart';
+import 'package:movil_architect/models/project_models.dart';
 import 'package:movil_architect/services/auth_service.dart';
 import 'package:movil_architect/services/mobile_api_service.dart';
 
@@ -27,6 +28,7 @@ class DashboardController extends ChangeNotifier {
   String? _errorMessage;
   List<AnalysisSummary> _analyses = [];
   List<ChatSummary> _chats = [];
+  final List<ProjectSummary> _projects = [];
   bool _isSendingAsk = false;
   String? _askErrorMessage;
   String? _activeChatId;
@@ -43,6 +45,7 @@ class DashboardController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<AnalysisSummary> get analyses => _analyses;
   List<ChatSummary> get chats => _chats;
+  List<ProjectSummary> get projects => _projects;
   UserModel? get user => _authService.currentUser;
   SubscriptionModel? get subscription => _authService.subscription;
   bool get isSendingAsk => _isSendingAsk;
@@ -236,11 +239,44 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addProject({
+    required String name,
+    required String client,
+    required String location,
+    String? description,
+  }) {
+    _projects.insert(
+      0,
+      ProjectSummary.fromNewProject(
+        name: name,
+        client: client,
+        location: location,
+        description: description,
+      ),
+    );
+    notifyListeners();
+  }
+
   Future<void> logout() => _authService.logout();
 
   Future<void> deleteChat(String chatId) async {
     await _mobileApiService.deleteChat(chatId);
     _chats.removeWhere((chat) => chat.id == chatId);
+    if (_activeChatId == chatId) {
+      _activeChatId = null;
+      _pendingAskMessage = null;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteAllChats() async {
+    final ids = _chats.map((chat) => chat.id).toList();
+    for (final id in ids) {
+      await _mobileApiService.deleteChat(id);
+    }
+    _chats.clear();
+    _activeChatId = null;
+    _pendingAskMessage = null;
     notifyListeners();
   }
 

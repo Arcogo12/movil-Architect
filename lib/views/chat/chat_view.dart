@@ -43,6 +43,11 @@ class _ChatViewState extends State<ChatView> {
     });
   }
 
+  Future<void> _refreshChat() async {
+    await _controller.load(showLoading: false);
+    _scrollToBottom();
+  }
+
   Future<void> _send() async {
     _scrollToBottom();
     await _controller.sendMessage();
@@ -88,6 +93,7 @@ class _ChatViewState extends State<ChatView> {
                 child: ChatMessagesList(
                   controller: _controller,
                   scrollController: _scrollController,
+                  onRefresh: _refreshChat,
                 ),
               ),
               if (_controller.errorMessage != null)

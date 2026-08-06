@@ -50,7 +50,7 @@ class MessageContent {
     return MessageContent(
       text: map['text'] as String?,
       filename: map['filename'] as String?,
-      analysisId: map['analysis_id'] as int?,
+      analysisId: (map['analysis_id'] as num?)?.toInt(),
       verdict: map['verdict'] is Map<String, dynamic>
           ? VerdictModel.fromJson(map['verdict'] as Map<String, dynamic>)
           : null,
@@ -80,7 +80,7 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
-      id: json['id'] as int,
+      id: (json['id'] as num?)?.toInt() ?? 0,
       role: json['role'] as String? ?? 'user',
       content: MessageContent.fromJson(json['content']),
       createdAt: json['created_at'] != null

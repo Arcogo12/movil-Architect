@@ -14,6 +14,7 @@ import 'package:movil_architect/views/dashboard/widgets/dashboard_shell.dart';
 import 'package:movil_architect/views/settings/settings_view.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
 import 'package:movil_architect/views/shared/attachment_picker_sheet.dart';
+import 'package:movil_architect/views/stage_admin/widgets/new_project_dialog.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key, this.initialChatId});
@@ -30,6 +31,7 @@ class _DashboardViewState extends State<DashboardView> {
   late final DashboardController _controller;
   final _scrollController = ScrollController();
   ChatController? _chatController;
+  bool _isStageAdminMode = false;
 
   @override
   void initState() {
@@ -71,13 +73,30 @@ class _DashboardViewState extends State<DashboardView> {
 
     _chatController?.dispose();
     _chatController = ChatController(chatId: chatId);
-    await _chatController!.load(showLoading: false);
+    if (mounted) setState(() {});
+    await _chatController!.load();
     if (mounted) setState(() {});
   }
 
   Future<void> _activateChat(String chatId) async {
+    _isStageAdminMode = false;
     _controller.setActiveChat(chatId);
     await _syncChatController(chatId);
+    if (!mounted) return;
+
+    if (_chatController?.state == ChatState.error &&
+        (_chatController?.errorMessage?.contains('no encontrado') == true ||
+            _chatController?.errorMessage?.contains('404') == true)) {
+      _controller.clearActiveChat();
+      _chatController?.dispose();
+      _chatController = null;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esa conversación ya no existe')),
+      );
+      return;
+    }
+
     _scrollToBottom();
   }
 
@@ -89,8 +108,32 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   void _newChat() {
+    _isStageAdminMode = false;
     _closeChat();
     _controller.askController.clear();
+  }
+
+  void _openStageAdmin() {
+    _closeChat();
+    _controller.askController.clear();
+    setState(() => _isStageAdminMode = true);
+  }
+
+  Future<void> _onNewProject() async {
+    final project = await NewProjectDialog.show(context);
+    if (!mounted || project == null) return;
+
+    _controller.addProject(
+      name: project.name,
+      client: project.client,
+      location: project.location,
+      description: project.description,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Proyecto "${project.name}" creado.')),
+    );
   }
 
   Future<void> _startNewChat() async {
@@ -131,7 +174,10 @@ class _DashboardViewState extends State<DashboardView> {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SettingsView(controller: _controller),
+        builder: (_) => SettingsView(
+          controller: _controller,
+          onAllChatsDeleted: _closeChat,
+        ),
       ),
     );
   }
@@ -220,6 +266,13 @@ class _DashboardViewState extends State<DashboardView> {
   bool get _showPlanoInChat =>
       _controller.pendingAskMessage != null || _controller.isAnalyzingPlano;
 
+  Future<void> _refreshDashboard() async {
+    await _controller.load(refresh: true);
+    if (_chatController != null) {
+      await _chatController!.load(showLoading: false);
+    }
+  }
+
   void _dismissPlanoAttachment() {
     if (_controller.isLoadingPendingPlano) {
       _controller.cancelPendingPlanoLoad();
@@ -232,9 +285,12 @@ class _DashboardViewState extends State<DashboardView> {
     final pending = _controller.pendingAskMessage;
     final name = _showPlanoInChat ? _controller.displayPlanoName : null;
 
-    return ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+    return RefreshIndicator(
+      onRefresh: _refreshDashboard,
+      child: ListView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       children: [
         if (name != null && pending != null)
           UserPlanoMessageGroup(
@@ -270,6 +326,7 @@ class _DashboardViewState extends State<DashboardView> {
           ),
         ],
       ],
+      ),
     );
   }
 
@@ -278,14 +335,15 @@ class _DashboardViewState extends State<DashboardView> {
       return ListenableBuilder(
         listenable: _chatController!,
         builder: (context, _) {
-          if (_chatController!.state == ChatState.loading) {
-            return const AppLoadingView(message: 'Cargando conversación...');
-          }
           if (_chatController!.state == ChatState.error) {
             return AppErrorView(
               message: _chatController!.errorMessage ?? 'Error al cargar',
               onRetry: () => _chatController!.load().then((_) => _scrollToBottom()),
+              retryLabel: 'Reintentar',
             );
+          }
+          if (_chatController!.state == ChatState.loading) {
+            return const AppLoadingView(message: 'Cargando conversación...');
           }
           return ChatMessagesList(
             controller: _chatController!,
@@ -300,6 +358,7 @@ class _DashboardViewState extends State<DashboardView> {
                 _showPlanoInChat ? _controller.displayPlanoName : null,
             onDismissPendingPlano: null,
             onPendingPlanoTap: null,
+            onRefresh: _refreshDashboard,
           );
         },
       );
@@ -330,6 +389,8 @@ class _DashboardViewState extends State<DashboardView> {
         onNewChat: _startNewChat,
         onSettings: _openSettings,
         onChatOpen: _activateChat,
+        onStageAdmin: _openStageAdmin,
+        isStageAdminActive: _isStageAdminMode && !_showChatArea,
       ),
       body: SafeArea(
         child: Column(
@@ -355,15 +416,38 @@ class _DashboardViewState extends State<DashboardView> {
                     children: [
                       DashboardTopBar(
                         onMenuTap: _openDrawer,
-                        onNewChatTap: _newChat,
+                        onNewChatTap:
+                            _isStageAdminMode ? null : _newChat,
                       ),
                       Expanded(
                         child: _showChatArea
                             ? _buildMainContent()
-                            : const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 20),
-                                  child: DashboardHero(),
+                            : RefreshIndicator(
+                                onRefresh: _refreshDashboard,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return SingleChildScrollView(
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          minHeight: constraints.maxHeight,
+                                        ),
+                                        child: Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                            ),
+                                            child: _isStageAdminMode
+                                                ? StageAdminHero(
+                                                    onNewProject: _onNewProject,
+                                                  )
+                                                : const DashboardHero(),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                       ),
@@ -375,7 +459,8 @@ class _DashboardViewState extends State<DashboardView> {
             ListenableBuilder(
               listenable: _askBarListenable,
               builder: (context, _) {
-                if (_controller.state != DashboardState.success) {
+                if (_controller.state != DashboardState.success ||
+                    _isStageAdminMode) {
                   return const SizedBox.shrink();
                 }
 
