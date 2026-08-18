@@ -19,11 +19,14 @@ class ChatController extends ChangeNotifier {
 
   ChatState _state = ChatState.loading;
   String? _errorMessage;
+  int? _errorStatusCode;
   ChatDetail? _detail;
   String? _pendingUserMessage;
+  bool _disposed = false;
 
   ChatState get state => _state;
   String? get errorMessage => _errorMessage;
+  int? get errorStatusCode => _errorStatusCode;
   ChatDetail? get detail => _detail;
   List<ChatMessage> get messages => _detail?.messages ?? [];
   String? get pendingUserMessage => _pendingUserMessage;
@@ -34,28 +37,37 @@ class ChatController extends ChangeNotifier {
     if (showLoading) {
       _state = ChatState.loading;
       _errorMessage = null;
+      _errorStatusCode = null;
       notifyListeners();
     }
 
     try {
       _detail = await _mobileApiService.getChat(chatId);
+      if (_disposed) return;
       if (_state != ChatState.sending) {
         _state = ChatState.success;
         _errorMessage = null;
+        _errorStatusCode = null;
       }
     } on ApiException catch (error) {
+      if (_disposed) return;
       if (_state != ChatState.sending) {
         _state = ChatState.error;
-        _errorMessage = error.message;
+        _errorStatusCode = error.statusCode;
+        _errorMessage = error.statusCode == 404
+            ? 'Conversación no encontrada.'
+            : error.message;
       }
     } catch (_) {
+      if (_disposed) return;
       if (_state != ChatState.sending) {
         _state = ChatState.error;
         _errorMessage = 'No se pudo cargar la conversación.';
+        _errorStatusCode = null;
       }
     }
 
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   Future<bool> sendMessage() async {
@@ -66,6 +78,7 @@ class ChatController extends ChangeNotifier {
     messageController.clear();
     _state = ChatState.sending;
     _errorMessage = null;
+    _errorStatusCode = null;
     notifyListeners();
 
     try {
@@ -82,21 +95,27 @@ class ChatController extends ChangeNotifier {
           chatId: chatId,
         );
       }
+      if (_disposed) return false;
       await load(showLoading: false);
+      if (_disposed) return false;
       _pendingUserMessage = null;
       _state = ChatState.success;
       notifyListeners();
       return true;
     } on ApiException catch (error) {
+      if (_disposed) return false;
       _pendingUserMessage = null;
       _state = ChatState.success;
       _errorMessage = error.message;
+      _errorStatusCode = error.statusCode;
       notifyListeners();
       return false;
     } catch (_) {
+      if (_disposed) return false;
       _pendingUserMessage = null;
       _state = ChatState.success;
       _errorMessage = 'No se pudo enviar el mensaje.';
+      _errorStatusCode = null;
       notifyListeners();
       return false;
     }
@@ -104,6 +123,7 @@ class ChatController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     messageController.dispose();
     super.dispose();
   }

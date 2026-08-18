@@ -15,7 +15,7 @@ class MobileApiService {
   Future<HealthResponse> health() async {
     try {
       final response = await _apiClient.dio.get<Map<String, dynamic>>(
-        '/api/mobile/health',
+        '/api/health',
       );
       return HealthResponse.fromJson(response.data ?? {});
     } on DioException catch (error) {
@@ -26,7 +26,7 @@ class MobileApiService {
   Future<MeResponse> me() async {
     try {
       final response = await _apiClient.dio.get<Map<String, dynamic>>(
-        '/api/mobile/me',
+        '/api/auth/me',
       );
       final data = response.data ?? {};
       if (data['ok'] == false) {
@@ -150,7 +150,7 @@ class MobileApiService {
       });
 
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
-        '/api/mobile/analyze',
+        '/api/analyze',
         data: formData,
       );
 

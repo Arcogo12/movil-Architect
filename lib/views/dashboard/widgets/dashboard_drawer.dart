@@ -11,7 +11,7 @@ class DashboardDrawer extends StatefulWidget {
     required this.onSettings,
     required this.onChatOpen,
     required this.onStageAdmin,
-    this.isStageAdminActive = false,
+    this.onChatDeleted,
   });
 
   final DashboardController controller;
@@ -19,7 +19,7 @@ class DashboardDrawer extends StatefulWidget {
   final VoidCallback onSettings;
   final ValueChanged<String> onChatOpen;
   final VoidCallback onStageAdmin;
-  final bool isStageAdminActive;
+  final ValueChanged<String>? onChatDeleted;
 
   @override
   State<DashboardDrawer> createState() => _DashboardDrawerState();
@@ -28,9 +28,7 @@ class DashboardDrawer extends StatefulWidget {
 class _DashboardDrawerState extends State<DashboardDrawer> {
   final _searchController = TextEditingController();
   String? _selectedChatId;
-  String? _selectedProjectId;
   bool _chatsExpanded = true;
-  bool _stagesExpanded = false;
 
   @override
   void initState() {
@@ -79,6 +77,7 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
     try {
       await widget.controller.deleteChat(chat.id);
       if (_selectedChatId == chat.id) _selectedChatId = null;
+      widget.onChatDeleted?.call(chat.id);
       if (mounted) setState(() {});
     } catch (_) {
       if (!mounted) return;
@@ -112,9 +111,12 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
             final planName =
                 widget.controller.subscription?.plan.name ?? 'Plan';
             final chats = _filteredChats;
-            final projects = widget.controller.projects;
-            if (_selectedChatId == null && chats.isNotEmpty) {
-              _selectedChatId = chats.first.id;
+            final activeChatId = widget.controller.activeChatId;
+            if (activeChatId != null) {
+              _selectedChatId = activeChatId;
+            } else if (_selectedChatId != null &&
+                chats.every((chat) => chat.id != _selectedChatId)) {
+              _selectedChatId = null;
             }
 
             return Column(
@@ -148,9 +150,7 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: _StageAdminModule(
-                    selected: widget.isStageAdminActive,
                     onTap: () {
-                      setState(() => _stagesExpanded = true);
                       Navigator.of(context).pop();
                       widget.onStageAdmin();
                     },
@@ -198,51 +198,6 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                                   ),
                           ),
                           crossFadeState: _chatsExpanded
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 200),
-                          sizeCurve: Curves.easeInOut,
-                        ),
-                        const SizedBox(height: 8),
-                        _CollapsibleHistoryHeader(
-                          title: 'HISTORIAL DE ETAPAS',
-                          count: projects.length,
-                          expanded: _stagesExpanded,
-                          onTap: () => setState(
-                            () => _stagesExpanded = !_stagesExpanded,
-                          ),
-                        ),
-                        AnimatedCrossFade(
-                          firstChild: const SizedBox.shrink(),
-                          secondChild: Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
-                            child: projects.isEmpty
-                                ? const _HistoryEmptyMessage(
-                                    message:
-                                        'Aún no hay proyectos.\nCrea uno desde Administración de etapas.',
-                                  )
-                                : Column(
-                                    children: [
-                                      for (final project in projects)
-                                        _ProjectHistoryTile(
-                                          title: project.name,
-                                          subtitle:
-                                              '${project.client} · ${project.location}',
-                                          selected:
-                                              project.id == _selectedProjectId,
-                                          onTap: () {
-                                            setState(
-                                              () => _selectedProjectId =
-                                                  project.id,
-                                            );
-                                            Navigator.of(context).pop();
-                                            widget.onStageAdmin();
-                                          },
-                                        ),
-                                    ],
-                                  ),
-                          ),
-                          crossFadeState: _stagesExpanded
                               ? CrossFadeState.showSecond
                               : CrossFadeState.showFirst,
                           duration: const Duration(milliseconds: 200),
@@ -382,11 +337,9 @@ class _NewChatButton extends StatelessWidget {
 class _StageAdminModule extends StatelessWidget {
   const _StageAdminModule({
     required this.onTap,
-    this.selected = false,
   });
 
   final VoidCallback onTap;
-  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -394,12 +347,9 @@ class _StageAdminModule extends StatelessWidget {
     final fillColor = colorScheme.brightness == Brightness.dark
         ? colorScheme.surfaceContainerHighest
         : const Color(0xFFE4E4E6);
-    final selectedColor = colorScheme.brightness == Brightness.dark
-        ? colorScheme.surfaceContainerHigh
-        : Colors.white;
 
     return Material(
-      color: selected ? selectedColor : fillColor,
+      color: fillColor,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -408,7 +358,7 @@ class _StageAdminModule extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Text(
-            'Administración de etapas',
+            'Casa hogar',
             style: TextStyle(
               color: colorScheme.onSurface,
               fontSize: 15,
@@ -511,81 +461,6 @@ class _HistoryEmptyMessage extends StatelessWidget {
           color: colorScheme.onSurfaceVariant,
           fontSize: 13,
           height: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _ProjectHistoryTile extends StatelessWidget {
-  const _ProjectHistoryTile({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final selectedColor = colorScheme.brightness == Brightness.dark
-        ? colorScheme.surfaceContainerHighest
-        : Colors.white;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: selected ? selectedColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.apartment_outlined,
-                  size: 20,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 15,
-                          fontWeight:
-                              selected ? FontWeight.w800 : FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

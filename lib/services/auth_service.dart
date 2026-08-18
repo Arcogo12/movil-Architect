@@ -56,7 +56,7 @@ class AuthService extends ChangeNotifier {
       }
 
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
-        '/api/mobile/register',
+        '/api/auth/register',
         data: payload,
       );
       final auth = AuthResponse.fromJson(response.data ?? {});

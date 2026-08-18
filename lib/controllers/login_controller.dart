@@ -49,6 +49,7 @@ class LoginController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await AppServices.instance.apiClient.refreshBaseUrl();
       await _authService.login(
         email: user.email,
         password: user.password,

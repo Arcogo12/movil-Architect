@@ -51,7 +51,10 @@ class SplashController extends ChangeNotifier {
       );
       _status = SplashStatus.readyDashboard;
     } on ApiException catch (error) {
-      if (await _authService.hasToken()) {
+      // Solo cerrar sesión si el token ya no es válido (401), no por fallos de red.
+      if (!error.isOffline &&
+          error.statusCode == 401 &&
+          await _authService.hasToken()) {
         await _authService.logout();
       }
       _status = SplashStatus.serverError;

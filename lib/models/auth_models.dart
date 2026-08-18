@@ -159,25 +159,14 @@ class HealthResponse {
   final String version;
 
   factory HealthResponse.fromJson(Map<String, dynamic> json) {
+    final ok = json['ok'] as bool? ?? false;
     return HealthResponse(
-      ok: json['ok'] as bool? ?? false,
-      service: json['service'] as String? ?? '',
-      message: json['message'] as String? ?? '',
-      version: json['version'] as String? ?? '',
-    );
-  }
-
-  /// Respuesta de GET /api/health (backend web).
-  factory HealthResponse.fromApiHealth(Map<String, dynamic> json) {
-    final dbOk = json['ok'] as bool? ?? json['database'] as bool? ?? false;
-    final hints = json['hints'];
-    final hint = hints is List && hints.isNotEmpty ? hints.first.toString() : '';
-
-    return HealthResponse(
-      ok: dbOk,
-      service: 'architect',
-      message: hint.isNotEmpty ? hint : 'Servidor ARCHITECT en línea',
-      version: '2.0',
+      ok: ok,
+      service: json['service'] as String? ?? 'ARCHITECT',
+      message: json['message'] as String? ??
+          (ok ? 'Servicio disponible' : 'Servicio no disponible'),
+      version: json['version'] as String? ??
+          (json['model_ready'] == true ? 'modelo listo' : ''),
     );
   }
 }

@@ -51,8 +51,74 @@ Asegúrate de que el backend responda en `/api/mobile/health` antes de iniciar s
 3. Si no hay token → Login
 4. **Login** — `POST /api/auth/login` → guarda JWT en almacenamiento seguro
 5. **Dashboard** — perfil, plan, historial (`GET /api/analyses`)
-6. **Analizar plano** — cámara, galería o archivo → `POST /api/mobile/analyze`
-7. **Resultados** — veredicto, contadores, imagen anotada e incidencias
+6. **Casa hogar** — menú lateral → proyectos de vivienda (9 etapas)
+7. **Analizar plano** — cámara, galería o archivo → `POST /api/mobile/analyze`
+8. **Resultados** — veredicto, contadores, imagen anotada e incidencias
+
+## Casa hogar (MVP)
+
+Módulo de proyectos de vivienda unifamiliar. Requiere JWT (mismo login).
+
+### API base
+
+Prioridad:
+1. `--dart-define=API_BASE=...`
+2. URL guardada en Ajustes
+3. Default actual (Cloudflare Tunnel): `https://arkansas-vision-custom-sunday.trycloudflare.com`
+
+```bash
+flutter run --dart-define=API_BASE=https://arkansas-vision-custom-sunday.trycloudflare.com
+flutter build apk --release --dart-define=API_BASE=https://arkansas-vision-custom-sunday.trycloudflare.com
+```
+
+El APK queda en:
+`build/app/outputs/flutter-apk/app-release.apk`
+
+JWT: el interceptor de `ApiClient` sigue enviando `Authorization: Bearer <token>`.
+
+Endpoints (base + path, sin slash doble):
+- `{API_BASE}/api/health`
+- `{API_BASE}/api/auth/login`
+- `{API_BASE}/api/home-projects`
+- etc.
+
+Endpoints consumidos (todos con `Authorization: Bearer <token>`):
+
+| Método | Ruta |
+|--------|------|
+| GET/POST | `/api/home-projects` |
+| GET/PATCH/DELETE | `/api/home-projects/{id}` |
+| PATCH | `/api/home-projects/{id}/sections/{sectionId}` |
+| GET/POST/DELETE | `/api/home-projects/{id}/sections/{sectionId}/comments` |
+| POST/DELETE | `/api/home-projects/{id}/members/...` |
+| POST | `/api/home-projects/invites/accept` |
+| POST | `/api/home-projects/{id}/stages/{n}/assist` |
+| GET | `/api/home-projects/analyses-picker` |
+| PATCH | `/api/home-projects/{id}/stages/{n}` (`analysis_id`) |
+| POST | `/api/home-projects/{id}/stages/{n}/documents` |
+| GET/DELETE | `/api/home-projects/{id}/documents/{docId}` (+ `/file`) |
+| POST | `/api/home-projects/{id}/advance` |
+
+Extras del MVP+:
+- Comentarios en apartados
+- Equipo / invitaciones (ícono en detalle + aceptar token en lista)
+- Asistencia IA por etapa
+- Vincular planos (etapas con `plan_review`)
+
+### Cómo probar
+
+1. Backend en `:8000` y app apuntando a tu `API_BASE`
+2. Login con `admin@architect.local` / `admin123`
+3. Menú → **Casa hogar**
+4. Crear proyecto → abrir etapa → apartado → subir documento / cambiar estado
+5. **Avanzar etapa** solo si `permissions.can_advance_stage == true`
+
+Archivos principales:
+
+- `lib/models/home_project_models.dart`
+- `lib/services/home_project_service.dart`
+- `lib/controllers/home_project_controller.dart`
+- `lib/views/home_projects/`
 
 ## Arquitectura (MVC)
 

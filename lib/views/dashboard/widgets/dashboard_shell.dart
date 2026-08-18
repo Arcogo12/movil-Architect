@@ -159,7 +159,8 @@ class _DismissChip extends StatelessWidget {
   }
 }
 
-class DashboardTopBar extends StatelessWidget {  const DashboardTopBar({
+class DashboardTopBar extends StatelessWidget {
+  const DashboardTopBar({
     super.key,
     required this.onMenuTap,
     this.onNewChatTap,
@@ -211,62 +212,6 @@ class DashboardHero extends StatelessWidget {
           fontWeight: FontWeight.w800,
           height: 1.2,
         ),
-      ),
-    );
-  }
-}
-
-class StageAdminHero extends StatelessWidget {
-  const StageAdminHero({super.key, this.onNewProject});
-
-  final VoidCallback? onNewProject;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final buttonBg = isDark ? colorScheme.onSurface : Colors.black;
-    final buttonFg = isDark ? colorScheme.surface : Colors.white;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Lleva el control de tu proyecto',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Material(
-            color: buttonBg,
-            borderRadius: BorderRadius.circular(999),
-            child: InkWell(
-              onTap: onNewProject,
-              borderRadius: BorderRadius.circular(999),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 16,
-                ),
-                child: Text(
-                  'Nuevo proyecto',
-                  style: TextStyle(
-                    color: buttonFg,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

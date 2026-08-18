@@ -6,7 +6,6 @@ import 'package:movil_architect/core/network/api_exception.dart';
 import 'package:movil_architect/models/analysis_models.dart';
 import 'package:movil_architect/models/auth_models.dart';
 import 'package:movil_architect/models/chat_models.dart';
-import 'package:movil_architect/models/project_models.dart';
 import 'package:movil_architect/services/auth_service.dart';
 import 'package:movil_architect/services/mobile_api_service.dart';
 
@@ -28,7 +27,6 @@ class DashboardController extends ChangeNotifier {
   String? _errorMessage;
   List<AnalysisSummary> _analyses = [];
   List<ChatSummary> _chats = [];
-  final List<ProjectSummary> _projects = [];
   bool _isSendingAsk = false;
   String? _askErrorMessage;
   String? _activeChatId;
@@ -40,12 +38,12 @@ class DashboardController extends ChangeNotifier {
   bool _isAnalyzingPlano = false;
   File? _displayPlanoFile;
   String? _displayPlanoName;
+  int _planoLoadGeneration = 0;
 
   DashboardState get state => _state;
   String? get errorMessage => _errorMessage;
   List<AnalysisSummary> get analyses => _analyses;
   List<ChatSummary> get chats => _chats;
-  List<ProjectSummary> get projects => _projects;
   UserModel? get user => _authService.currentUser;
   SubscriptionModel? get subscription => _authService.subscription;
   bool get isSendingAsk => _isSendingAsk;
@@ -74,6 +72,7 @@ class DashboardController extends ChangeNotifier {
   }
 
   Future<void> preparePendingPlano(File file, String name) async {
+    final generation = ++_planoLoadGeneration;
     _isLoadingPendingPlano = true;
     _pendingPlanoLoadProgress = 0;
     _pendingPlanoName = name;
@@ -83,6 +82,7 @@ class DashboardController extends ChangeNotifier {
 
     try {
       if (!await file.exists()) {
+        if (generation != _planoLoadGeneration) return;
         _askErrorMessage = 'No se pudo acceder al archivo.';
         _pendingPlanoName = null;
         return;
@@ -90,6 +90,7 @@ class DashboardController extends ChangeNotifier {
 
       final total = await file.length();
       if (total == 0) {
+        if (generation != _planoLoadGeneration) return;
         _askErrorMessage = 'El archivo está vacío.';
         _pendingPlanoName = null;
         return;
@@ -100,10 +101,12 @@ class DashboardController extends ChangeNotifier {
         const chunkSize = 64 * 1024;
         var read = 0;
         while (read < total) {
+          if (generation != _planoLoadGeneration) return;
           final toRead =
               read + chunkSize > total ? total - read : chunkSize;
           await raf.read(toRead);
           read += toRead;
+          if (generation != _planoLoadGeneration) return;
           _pendingPlanoLoadProgress = read / total;
           notifyListeners();
         }
@@ -111,15 +114,19 @@ class DashboardController extends ChangeNotifier {
         await raf.close();
       }
 
+      if (generation != _planoLoadGeneration) return;
       _pendingPlanoFile = file;
       _pendingPlanoLoadProgress = 1;
     } catch (_) {
+      if (generation != _planoLoadGeneration) return;
       _askErrorMessage = 'No se pudo cargar el plano.';
       _pendingPlanoName = null;
       _pendingPlanoFile = null;
     } finally {
-      _isLoadingPendingPlano = false;
-      notifyListeners();
+      if (generation == _planoLoadGeneration) {
+        _isLoadingPendingPlano = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -133,6 +140,7 @@ class DashboardController extends ChangeNotifier {
   }
 
   void cancelPendingPlanoLoad() {
+    _planoLoadGeneration++;
     _isLoadingPendingPlano = false;
     _pendingPlanoFile = null;
     _pendingPlanoName = null;
@@ -239,24 +247,6 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addProject({
-    required String name,
-    required String client,
-    required String location,
-    String? description,
-  }) {
-    _projects.insert(
-      0,
-      ProjectSummary.fromNewProject(
-        name: name,
-        client: client,
-        location: location,
-        description: description,
-      ),
-    );
-    notifyListeners();
-  }
-
   Future<void> logout() => _authService.logout();
 
   Future<void> deleteChat(String chatId) async {
@@ -271,13 +261,27 @@ class DashboardController extends ChangeNotifier {
 
   Future<void> deleteAllChats() async {
     final ids = _chats.map((chat) => chat.id).toList();
+    var failed = 0;
     for (final id in ids) {
-      await _mobileApiService.deleteChat(id);
+      try {
+        await _mobileApiService.deleteChat(id);
+        _chats.removeWhere((chat) => chat.id == id);
+        if (_activeChatId == id) {
+          _activeChatId = null;
+          _pendingAskMessage = null;
+        }
+      } catch (_) {
+        failed++;
+      }
     }
-    _chats.clear();
-    _activeChatId = null;
-    _pendingAskMessage = null;
     notifyListeners();
+    if (failed > 0) {
+      throw ApiException(
+        message: failed == ids.length
+            ? 'No se pudieron eliminar las conversaciones.'
+            : 'Se eliminaron algunas conversaciones, pero $failed fallaron.',
+      );
+    }
   }
 
   /// Envía una pregunta general (sin plano). Mantiene el chat activo en el dashboard.
@@ -296,9 +300,7 @@ class DashboardController extends ChangeNotifier {
         message: text,
         chatId: _activeChatId,
       );
-      _activeChatId = response.chatId ??
-          _activeChatId ??
-          (_chats.isNotEmpty ? _chats.first.id : null);
+      _activeChatId = response.chatId ?? _activeChatId;
       await load(refresh: true);
       _pendingAskMessage = null;
       _isSendingAsk = false;

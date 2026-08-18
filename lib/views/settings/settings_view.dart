@@ -271,8 +271,9 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Emulador Android: ${AppConfig.defaultEmulatorUrl}\n'
-                        'Dispositivo físico: http://IP_DE_TU_PC:8000',
+                        'API actual: ${AppConfig.defaultServerUrl()}\n'
+                        'Puedes pegar otra URL de ngrok o LAN y guardar.\n'
+                        'Build: --dart-define=API_BASE=https://...',
                         style: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           height: 1.4,

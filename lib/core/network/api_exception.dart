@@ -25,6 +25,7 @@ class ApiException implements Exception {
     final response = error.response;
     final statusCode = response?.statusCode;
     final data = response?.data;
+    final path = error.requestOptions.path;
 
     String message = 'Ocurrió un error inesperado.';
     if (data is String) {
@@ -47,8 +48,17 @@ class ApiException implements Exception {
 
     switch (statusCode) {
       case 401:
-        message = message == 'Ocurrió un error inesperado.'
-            ? 'Sesión expirada. Inicia sesión de nuevo.'
+        if (message == 'Ocurrió un error inesperado.') {
+          final isAuthAttempt =
+              path.contains('/login') || path.contains('/register');
+          message = isAuthAttempt
+              ? 'Correo o contraseña incorrectos'
+              : 'Sesión expirada. Inicia sesión de nuevo.';
+        }
+      case 403:
+        message = message == 'Ocurrió un error inesperado.' ||
+                message == 'Forbidden'
+            ? 'No tienes permiso para esta acción.'
             : message;
       case 402:
         message = 'Has alcanzado el límite mensual de análisis.';

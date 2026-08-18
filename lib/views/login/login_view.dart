@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/login_controller.dart';
+import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/theme/app_colors.dart';
 import 'package:movil_architect/views/dashboard/dashboard_view.dart';
+import 'package:movil_architect/views/login/server_connection_view.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
 import 'package:movil_architect/views/register/register_view.dart';
-import 'package:movil_architect/views/settings/settings_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -15,11 +16,30 @@ class LoginView extends StatefulWidget {
 
 class _LoginViewState extends State<LoginView> {
   late final LoginController _controller;
+  String _serverUrl = '';
 
   @override
   void initState() {
     super.initState();
     _controller = LoginController();
+    _loadServerUrl();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await AppServices.instance.settingsStorage.getServerUrl();
+    if (!mounted) return;
+    setState(() => _serverUrl = url);
+  }
+
+  Future<void> _openServerConnection() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const ServerConnectionView(),
+      ),
+    );
+    if (saved == true) {
+      await _loadServerUrl();
+    }
   }
 
   @override
@@ -37,27 +57,19 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
+  String get _serverHint {
+    if (_serverUrl.isEmpty) return 'Sin servidor configurado';
+    final clean = _serverUrl
+        .replaceFirst(RegExp(r'^https?://'), '')
+        .replaceFirst(RegExp(r'/$'), '');
+    if (clean.length <= 36) return clean;
+    return '${clean.substring(0, 18)}…${clean.substring(clean.length - 14)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Configurar servidor',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SettingsView(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.settings_outlined, color: AppColors.ink),
-          ),
-        ],
-      ),
       body: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {
@@ -68,6 +80,17 @@ class _LoginViewState extends State<LoginView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _openServerConnection,
+                      icon: const Icon(Icons.dns_outlined, size: 18),
+                      label: const Text('Servidor'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.iosBlue,
+                      ),
+                    ),
+                  ),
                   const Center(child: LoginAppMark()),
                   const SizedBox(height: 40),
                   const Text(
@@ -126,6 +149,60 @@ class _LoginViewState extends State<LoginView> {
                     label: 'Iniciar sesión',
                     isLoading: _controller.isLoading,
                     onPressed: _handleLogin,
+                  ),
+                  const SizedBox(height: 16),
+                  Material(
+                    color: AppColors.loginFieldFill,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      onTap: _openServerConnection,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.link_rounded,
+                              size: 22,
+                              color: AppColors.iosBlue,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Conectar al servidor',
+                                    style: TextStyle(
+                                      color: AppColors.ink,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _serverHint,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Center(

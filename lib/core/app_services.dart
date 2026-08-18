@@ -1,9 +1,10 @@
 import 'package:movil_architect/core/network/api_client.dart';
 import 'package:movil_architect/core/storage/secure_storage_service.dart';
 import 'package:movil_architect/core/storage/settings_storage.dart';
-import 'package:movil_architect/services/auth_service.dart';
-import 'package:movil_architect/services/mobile_api_service.dart';
 import 'package:movil_architect/core/theme/theme_service.dart';
+import 'package:movil_architect/services/auth_service.dart';
+import 'package:movil_architect/services/home_project_service.dart';
+import 'package:movil_architect/services/mobile_api_service.dart';
 
 class AppServices {
   AppServices._();
@@ -15,6 +16,7 @@ class AppServices {
   late final ApiClient apiClient;
   late final AuthService authService;
   late final MobileApiService mobileApiService;
+  late final HomeProjectService homeProjectService;
   late final ThemeService themeService;
 
   bool _initialized = false;
@@ -34,6 +36,7 @@ class AppServices {
       secureStorage: secureStorage,
     );
     mobileApiService = MobileApiService(apiClient: apiClient);
+    homeProjectService = HomeProjectService(apiClient: apiClient);
 
     apiClient.onUnauthorized = authService.handleUnauthorized;
 

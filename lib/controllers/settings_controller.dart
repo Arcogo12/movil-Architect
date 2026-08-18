@@ -89,16 +89,19 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _apiClient.setBaseUrl(AppConfig.normalizeBaseUrl(urlController.text));
+      _apiClient.applyBaseUrl(AppConfig.normalizeBaseUrl(urlController.text));
       final health = await _mobileApiService.health();
       _successMessage = health.ok
-          ? 'Conexión exitosa (${health.version})'
+          ? (health.version.isNotEmpty
+              ? 'Conexión exitosa (${health.version})'
+              : 'Conexión exitosa')
           : 'El servidor no está listo.';
     } on ApiException catch (error) {
       _errorMessage = error.message;
     } catch (_) {
       _errorMessage = 'No se pudo conectar al servidor.';
     } finally {
+      await _apiClient.refreshBaseUrl();
       _isTesting = false;
       notifyListeners();
     }

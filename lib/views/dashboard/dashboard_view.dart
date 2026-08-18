@@ -14,7 +14,7 @@ import 'package:movil_architect/views/dashboard/widgets/dashboard_shell.dart';
 import 'package:movil_architect/views/settings/settings_view.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
 import 'package:movil_architect/views/shared/attachment_picker_sheet.dart';
-import 'package:movil_architect/views/stage_admin/widgets/new_project_dialog.dart';
+import 'package:movil_architect/views/home_projects/home_projects_list_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key, this.initialChatId});
@@ -31,7 +31,6 @@ class _DashboardViewState extends State<DashboardView> {
   late final DashboardController _controller;
   final _scrollController = ScrollController();
   ChatController? _chatController;
-  bool _isStageAdminMode = false;
 
   @override
   void initState() {
@@ -79,14 +78,12 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Future<void> _activateChat(String chatId) async {
-    _isStageAdminMode = false;
     _controller.setActiveChat(chatId);
     await _syncChatController(chatId);
     if (!mounted) return;
 
     if (_chatController?.state == ChatState.error &&
-        (_chatController?.errorMessage?.contains('no encontrado') == true ||
-            _chatController?.errorMessage?.contains('404') == true)) {
+        _chatController?.errorStatusCode == 404) {
       _controller.clearActiveChat();
       _chatController?.dispose();
       _chatController = null;
@@ -108,31 +105,15 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   void _newChat() {
-    _isStageAdminMode = false;
     _closeChat();
     _controller.askController.clear();
   }
 
-  void _openStageAdmin() {
-    _closeChat();
-    _controller.askController.clear();
-    setState(() => _isStageAdminMode = true);
-  }
-
-  Future<void> _onNewProject() async {
-    final project = await NewProjectDialog.show(context);
-    if (!mounted || project == null) return;
-
-    _controller.addProject(
-      name: project.name,
-      client: project.client,
-      location: project.location,
-      description: project.description,
-    );
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Proyecto "${project.name}" creado.')),
+  void _openCasaHogar() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const HomeProjectsListView(),
+      ),
     );
   }
 
@@ -389,8 +370,12 @@ class _DashboardViewState extends State<DashboardView> {
         onNewChat: _startNewChat,
         onSettings: _openSettings,
         onChatOpen: _activateChat,
-        onStageAdmin: _openStageAdmin,
-        isStageAdminActive: _isStageAdminMode && !_showChatArea,
+        onChatDeleted: (chatId) {
+          if (_chatController?.chatId == chatId) {
+            _closeChat();
+          }
+        },
+        onStageAdmin: _openCasaHogar,
       ),
       body: SafeArea(
         child: Column(
@@ -416,8 +401,7 @@ class _DashboardViewState extends State<DashboardView> {
                     children: [
                       DashboardTopBar(
                         onMenuTap: _openDrawer,
-                        onNewChatTap:
-                            _isStageAdminMode ? null : _newChat,
+                        onNewChatTap: _newChat,
                       ),
                       Expanded(
                         child: _showChatArea
@@ -433,16 +417,12 @@ class _DashboardViewState extends State<DashboardView> {
                                         constraints: BoxConstraints(
                                           minHeight: constraints.maxHeight,
                                         ),
-                                        child: Center(
+                                        child: const Center(
                                           child: Padding(
-                                            padding: const EdgeInsets.symmetric(
+                                            padding: EdgeInsets.symmetric(
                                               horizontal: 20,
                                             ),
-                                            child: _isStageAdminMode
-                                                ? StageAdminHero(
-                                                    onNewProject: _onNewProject,
-                                                  )
-                                                : const DashboardHero(),
+                                            child: DashboardHero(),
                                           ),
                                         ),
                                       ),
@@ -459,8 +439,7 @@ class _DashboardViewState extends State<DashboardView> {
             ListenableBuilder(
               listenable: _askBarListenable,
               builder: (context, _) {
-                if (_controller.state != DashboardState.success ||
-                    _isStageAdminMode) {
+                if (_controller.state != DashboardState.success) {
                   return const SizedBox.shrink();
                 }
 
