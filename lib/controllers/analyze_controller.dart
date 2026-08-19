@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
 import 'package:movil_architect/models/analysis_models.dart';
+import 'package:movil_architect/models/app_config_models.dart';
 import 'package:movil_architect/services/mobile_api_service.dart';
 
 enum AnalyzeState { idle, uploading, success, error }
@@ -21,24 +22,35 @@ class AnalyzeController extends ChangeNotifier {
   File? _selectedFile;
   String? _selectedFileName;
   AnalysisResult? _result;
+  PlanoPreview? _preview;
 
   AnalyzeState get state => _state;
   String? get errorMessage => _errorMessage;
   File? get selectedFile => _selectedFile;
   String? get selectedFileName => _selectedFileName;
   AnalysisResult? get result => _result;
+  PlanoPreview? get preview => _preview;
 
   void setFile(File file, String name) {
     _selectedFile = file;
     _selectedFileName = name;
     _errorMessage = null;
     notifyListeners();
+    _loadPreview(file);
   }
 
   void clearFile() {
     _selectedFile = null;
     _selectedFileName = null;
+    _preview = null;
     notifyListeners();
+  }
+
+  Future<void> _loadPreview(File file) async {
+    try {
+      _preview = await _mobileApiService.previewPlano(file);
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<bool> analyze() async {

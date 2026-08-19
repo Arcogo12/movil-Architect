@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:movil_architect/core/speech/speech_dictation.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 
 bool isPlanoImageFile(String name) {
   final ext = name.split('.').last.toLowerCase();
@@ -239,15 +241,26 @@ class DashboardAskBar extends StatefulWidget {
 
 class _DashboardAskBarState extends State<DashboardAskBar> {
   late final FocusNode _focusNode;
+  late final SpeechDictationController _dictation;
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    _dictation = SpeechDictationController(
+      onListeningChanged: (_) {
+        if (mounted) setState(() {});
+      },
+      onError: (message) {
+        if (!mounted) return;
+        AppNotifications.error(context, message);
+      },
+    );
   }
 
   @override
   void dispose() {
+    _dictation.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -255,6 +268,19 @@ class _DashboardAskBarState extends State<DashboardAskBar> {
   void _focusField() {
     if (widget.isSending) return;
     _focusNode.requestFocus();
+  }
+
+  Future<void> _toggleDictation() async {
+    if (widget.isSending) return;
+    await _dictation.toggle(
+      currentText: widget.controller.text,
+      onText: (text) {
+        widget.controller.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+    );
   }
 
   @override
@@ -334,6 +360,25 @@ class _DashboardAskBarState extends State<DashboardAskBar> {
                     horizontal: 4,
                     vertical: 14,
                   ),
+                ),
+              ),
+            ),
+          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.isSending ? null : _toggleDictation,
+              borderRadius: BorderRadius.circular(999),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  _dictation.isListening
+                      ? Icons.mic_rounded
+                      : Icons.mic_none_rounded,
+                  color: _dictation.isListening
+                      ? Colors.red
+                      : colorScheme.onSurfaceVariant,
+                  size: 23,
                 ),
               ),
             ),

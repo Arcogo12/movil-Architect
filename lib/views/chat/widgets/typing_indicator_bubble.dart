@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/core/theme/app_colors.dart';
+import 'package:movil_architect/views/chat/widgets/chat_message_bubble.dart';
 
 /// Burbuja del asistente con tres puntos animados (estado "escribiendo…").
 class TypingIndicatorBubble extends StatefulWidget {
@@ -51,31 +52,39 @@ class _TypingIndicatorBubbleState extends State<TypingIndicatorBubble>
             ),
           ],
         ),
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(3, (index) {
-                final phase = (_controller.value + index * 0.2) % 1.0;
-                final opacity = 0.35 + (0.65 * _dotOpacity(phase));
-                return Padding(
-                  padding: EdgeInsets.only(right: index < 2 ? 6 : 0),
-                  child: Opacity(
-                    opacity: opacity,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.muted,
-                        shape: BoxShape.circle,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AiReplyHeader(),
+            const SizedBox(height: 12),
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (index) {
+                    final phase = (_controller.value + index * 0.2) % 1.0;
+                    final opacity = 0.35 + (0.65 * _dotOpacity(phase));
+                    return Padding(
+                      padding: EdgeInsets.only(right: index < 2 ? 6 : 0),
+                      child: Opacity(
+                        opacity: opacity,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.muted,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 );
-              }),
-            );
-          },
+              },
+            ),
+          ],
         ),
       ),
     );

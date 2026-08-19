@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/home_project_controller.dart';
 import 'package:movil_architect/core/app_services.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/core/utils/date_utils.dart';
 import 'package:movil_architect/models/home_project_models.dart';
 import 'package:movil_architect/views/home_projects/widgets/home_project_widgets.dart';
@@ -74,14 +75,11 @@ class _SectionDetailViewState extends State<SectionDetailView> {
       status: selected,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Estado actualizado'
-              : (widget.controller.actionError ?? 'No se pudo actualizar'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Estado actualizado',
+      errorMessage: widget.controller.actionError,
     );
   }
 
@@ -94,8 +92,9 @@ class _SectionDetailViewState extends State<SectionDetailView> {
     final size = await file.length();
     if (size > 25 * 1024 * 1024) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El archivo supera el límite de 25 MB')),
+      AppNotifications.error(
+        context,
+        'El archivo supera el límite de 25 MB',
       );
       return;
     }
@@ -106,21 +105,18 @@ class _SectionDetailViewState extends State<SectionDetailView> {
       file: file,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Documento subido'
-              : (widget.controller.actionError ?? 'No se pudo subir'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Documento subido',
+      errorMessage: widget.controller.actionError,
     );
   }
 
   Future<void> _openDoc(HomeProjectDocument doc) async {
     final error = await widget.controller.openDocument(doc);
     if (!mounted || error == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    AppNotifications.error(context, error);
   }
 
   Future<void> _deleteDoc(HomeProjectDocument doc) async {
@@ -149,14 +145,11 @@ class _SectionDetailViewState extends State<SectionDetailView> {
 
     final ok = await widget.controller.deleteDocument(doc.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Documento eliminado'
-              : (widget.controller.actionError ?? 'No se pudo eliminar'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Documento eliminado',
+      errorMessage: widget.controller.actionError,
     );
   }
 
@@ -175,14 +168,11 @@ class _SectionDetailViewState extends State<SectionDetailView> {
         _commentsTotal = null;
       });
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Comentario publicado'
-              : (widget.controller.actionError ?? 'No se pudo comentar'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Comentario publicado',
+      errorMessage: widget.controller.actionError,
     );
   }
 
@@ -227,14 +217,11 @@ class _SectionDetailViewState extends State<SectionDetailView> {
         _commentsTotal = null;
       });
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Comentario eliminado'
-              : (widget.controller.actionError ?? 'No se pudo eliminar'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Comentario eliminado',
+      errorMessage: widget.controller.actionError,
     );
   }
 

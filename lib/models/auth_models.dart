@@ -4,12 +4,22 @@ class UserModel {
     required this.email,
     required this.fullName,
     required this.role,
+    this.avatarUrl,
+    this.hasPassword = true,
+    this.oauthProvider,
   });
 
   final int id;
   final String email;
   final String fullName;
   final String role;
+  final String? avatarUrl;
+  final bool hasPassword;
+  final String? oauthProvider;
+
+  bool get isGoogleAccount =>
+      hasPassword == false ||
+      (oauthProvider != null && oauthProvider!.toLowerCase().contains('google'));
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -17,6 +27,9 @@ class UserModel {
       email: json['email'] as String? ?? '',
       fullName: json['full_name'] as String? ?? '',
       role: json['role'] as String? ?? 'user',
+      avatarUrl: json['avatar_url'] as String?,
+      hasPassword: json['has_password'] as bool? ?? true,
+      oauthProvider: json['oauth_provider'] as String?,
     );
   }
 
@@ -25,6 +38,9 @@ class UserModel {
         'email': email,
         'full_name': fullName,
         'role': role,
+        'avatar_url': avatarUrl,
+        'has_password': hasPassword,
+        'oauth_provider': oauthProvider,
       };
 }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/home_project_controller.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/models/home_project_models.dart';
 import 'package:movil_architect/views/home_projects/home_project_team_view.dart';
+import 'package:movil_architect/views/home_projects/section_detail_view.dart';
 import 'package:movil_architect/views/home_projects/stage_detail_view.dart';
 import 'package:movil_architect/views/home_projects/widgets/home_project_widgets.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
@@ -56,14 +58,11 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
 
     final ok = await _controller.advanceStage();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Etapa avanzada correctamente'
-              : (_controller.actionError ?? 'No se pudo avanzar'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Etapa avanzada correctamente',
+      errorMessage: _controller.actionError,
     );
   }
 
@@ -94,13 +93,13 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
     final ok = await _controller.deleteProject();
     if (!mounted) return;
     if (ok) {
+      AppNotifications.success(context, 'Proyecto eliminado');
       Navigator.of(context).pop(true);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_controller.actionError ?? 'No se pudo eliminar'),
-      ),
+    AppNotifications.error(
+      context,
+      _controller.actionError ?? 'No se pudo eliminar',
     );
   }
 
@@ -117,6 +116,23 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
     if (mounted) await _controller.load(refresh: true);
   }
 
+  Future<void> _openSection(
+    HomeProjectStage stage,
+    HomeProjectSection section,
+  ) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SectionDetailView(
+          projectId: widget.projectId,
+          stageNumber: stage.stageNumber,
+          sectionId: section.id,
+          controller: _controller,
+        ),
+      ),
+    );
+    if (mounted) await _controller.load(refresh: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -125,8 +141,8 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
       listenable: _controller,
       builder: (context, _) {
         final project = _controller.project;
-        final selected =
-            _selectedStage ?? project?.currentStage ?? 1;
+        final selected = _selectedStage ?? project?.currentStage ?? 1;
+        final selectedStage = project?.stageByNumber(selected);
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -323,25 +339,6 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Apartados: ${stage.sectionsProgress.done}/'
-                                    '${stage.sectionsProgress.total}'
-                                    '${stage.planReview ? ' · Revisión de planos' : ''}',
-                                    style: TextStyle(
-                                      color: scheme.onSurface,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Ver apartados',
-                                    style: TextStyle(
-                                      color: scheme.primary,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -349,41 +346,93 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
                         ),
                       ],
                     const SizedBox(height: 20),
-                    Text(
-                      'Todas las etapas',
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    for (final stage in project.stages) ...[
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: scheme.surfaceContainerHighest,
+                    Row(
+                      children: [
+                        Expanded(
                           child: Text(
-                            '${stage.stageNumber}',
+                            'Apartados',
                             style: TextStyle(
                               color: scheme.onSurface,
+                              fontSize: 16,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
-                        title: Text(
-                          stage.title,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        if (selectedStage != null)
+                          Text(
+                            '${selectedStage.sectionsProgress.done}/'
+                            '${selectedStage.sectionsProgress.total}'
+                            '${selectedStage.planReview ? ' · Planos' : ''}',
+                            style: TextStyle(
+                              color: scheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (selectedStage == null ||
+                        selectedStage.sections.isEmpty)
+                      Text(
+                        'Esta etapa no tiene apartados.',
+                        style: TextStyle(color: scheme.onSurfaceVariant),
+                      )
+                    else
+                      for (final (index, section)
+                          in selectedStage.sections.indexed)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Material(
+                            color: Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              onTap: () =>
+                                  _openSection(selectedStage, section),
+                              borderRadius: BorderRadius.circular(14),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: _apartadoColor(index),
+                                      width: 4,
+                                    ),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: _apartadoColor(index)
+                                        .withValues(alpha: 0.16),
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: TextStyle(
+                                        color: _apartadoColor(index),
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    section.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: HomeStatusChip(
+                                        status: section.status,
+                                      ),
+                                    ),
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        subtitle: Text(
-                          '${homeProjectStatusLabel(stage.status)} · '
-                          '${stage.sectionsProgress.done}/'
-                          '${stage.sectionsProgress.total}',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _openStage(stage),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -392,4 +441,17 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
       },
     );
   }
+}
+
+Color _apartadoColor(int index) {
+  const colors = [
+    Color(0xFF1B4D8A),
+    Color(0xFF1B8A5A),
+    Color(0xFFB07A00),
+    Color(0xFF6B3FA0),
+    Color(0xFFC45C26),
+    Color(0xFF0E7C7B),
+    Color(0xFF8A1B4D),
+  ];
+  return colors[index % colors.length];
 }

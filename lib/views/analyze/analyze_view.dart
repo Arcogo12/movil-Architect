@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/analyze_controller.dart';
+import 'package:movil_architect/core/utils/image_utils.dart';
 import 'package:movil_architect/views/analysis/analysis_results_view.dart';
 import 'package:movil_architect/views/dashboard/widgets/dashboard_shell.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
@@ -102,7 +103,21 @@ class _AnalyzeViewState extends State<AnalyzeView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (isImage)
+                            if (_controller.preview != null &&
+                                _controller.preview!.imageBase64.isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: AspectRatio(
+                                  aspectRatio: 4 / 3,
+                                  child: Image.memory(
+                                    decodeBase64Image(
+                                      _controller.preview!.imageBase64,
+                                    ),
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              )
+                            else if (isImage)
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(20),
                                 child: AspectRatio(

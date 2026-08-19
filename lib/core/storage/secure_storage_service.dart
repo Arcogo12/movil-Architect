@@ -10,6 +10,7 @@ class SecureStorageService {
   static const _tokenKey = 'access_token';
   static const _serverUrlKey = 'server_base_url';
   static const _darkModeKey = 'dark_mode_enabled';
+  static const _pinnedChatsKey = 'pinned_chat_ids';
 
   final FlutterSecureStorage _storage;
 
@@ -35,4 +36,15 @@ class SecureStorageService {
     if (value == null) return null;
     return value == '1' || value.toLowerCase() == 'true';
   }
+
+  Future<List<String>> getPinnedChatIds() async {
+    final value = await _storage.read(key: _pinnedChatsKey);
+    if (value == null || value.isEmpty) return [];
+    return value.split(',').where((id) => id.isNotEmpty).toList();
+  }
+
+  Future<void> savePinnedChatIds(List<String> ids) => _storage.write(
+        key: _pinnedChatsKey,
+        value: ids.join(','),
+      );
 }

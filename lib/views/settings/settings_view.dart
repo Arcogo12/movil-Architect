@@ -3,9 +3,13 @@ import 'package:movil_architect/controllers/dashboard_controller.dart';
 import 'package:movil_architect/controllers/settings_controller.dart';
 import 'package:movil_architect/core/config/app_config.dart';
 import 'package:movil_architect/core/theme/app_colors.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/models/auth_models.dart';
+import 'package:movil_architect/views/billing/billing_view.dart';
 import 'package:movil_architect/views/login/login_view.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
+import 'package:movil_architect/views/profile/profile_view.dart';
+import 'package:movil_architect/views/support/support_list_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({
@@ -50,10 +54,26 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _saveServer() async {
     final ok = await _settingsController.save();
     if (!mounted) return;
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Servidor guardado correctamente')),
+    if (ok && _settingsController.successMessage != null) {
+      AppNotifications.success(
+        context,
+        _settingsController.successMessage!,
       );
+    } else if (_settingsController.errorMessage != null) {
+      AppNotifications.error(context, _settingsController.errorMessage!);
+    }
+  }
+
+  Future<void> _testConnection() async {
+    await _settingsController.testConnection();
+    if (!mounted) return;
+    if (_settingsController.successMessage != null) {
+      AppNotifications.success(
+        context,
+        _settingsController.successMessage!,
+      );
+    } else if (_settingsController.errorMessage != null) {
+      AppNotifications.error(context, _settingsController.errorMessage!);
     }
   }
 
@@ -69,8 +89,9 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _confirmDeleteAllChats() async {
     final count = _dashboardController.chats.length;
     if (count == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay conversaciones para eliminar')),
+      AppNotifications.error(
+        context,
+        'No hay conversaciones para eliminar',
       );
       return;
     }
@@ -126,16 +147,13 @@ class _SettingsViewState extends State<SettingsView> {
       if (!mounted) return;
       Navigator.pop(context);
       widget.onAllChatsDeleted?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Historial de chats eliminado')),
-      );
+      AppNotifications.success(context, 'Historial de chats eliminado');
     } catch (_) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudieron eliminar todas las conversaciones'),
-        ),
+      AppNotifications.error(
+        context,
+        'No se pudieron eliminar todas las conversaciones',
       );
     }
   }
@@ -185,6 +203,47 @@ class _SettingsViewState extends State<SettingsView> {
                   const _InfoCard(
                     message: 'No se pudo cargar la información del plan.',
                   ),
+                const SizedBox(height: 28),
+                const _SectionTitle('Cuenta'),
+                const SizedBox(height: 10),
+                _SettingsTile(
+                  icon: Icons.person_outline,
+                  title: 'Perfil',
+                  subtitle: 'Nombre, avatar y contraseña',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProfileView(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                _SettingsTile(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'Planes y facturación',
+                  subtitle: 'Cambiar plan, recibos y reembolsos',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BillingView(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                _SettingsTile(
+                  icon: Icons.support_agent_outlined,
+                  title: 'Ayuda y soporte',
+                  subtitle: 'Tickets y mensajes',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SupportListView(),
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 28),
                 const _SectionTitle('Apariencia'),
                 const SizedBox(height: 10),
@@ -271,9 +330,9 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'API actual: ${AppConfig.defaultServerUrl()}\n'
-                        'Puedes pegar otra URL de ngrok o LAN y guardar.\n'
-                        'Build: --dart-define=API_BASE=https://...',
+                        'API local (Docker): ${AppConfig.defaultServerUrl()}\n'
+                        'Enciende el backend con Docker en el puerto 8000.\n'
+                        'Emulador Android: http://10.0.2.2:8000',
                         style: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           height: 1.4,
@@ -286,25 +345,11 @@ class _SettingsViewState extends State<SettingsView> {
                         keyboardType: TextInputType.url,
                         autocorrect: false,
                       ),
-                      if (_settingsController.errorMessage != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _settingsController.errorMessage!,
-                          style: const TextStyle(color: Colors.redAccent),
-                        ),
-                      ],
-                      if (_settingsController.successMessage != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _settingsController.successMessage!,
-                          style: const TextStyle(color: Color(0xFF1B8A5A)),
-                        ),
-                      ],
                       const SizedBox(height: 14),
                       OutlinedButton(
                         onPressed: _settingsController.isTesting
                             ? null
-                            : _settingsController.testConnection,
+                            : _testConnection,
                         child: _settingsController.isTesting
                             ? const SizedBox(
                                 width: 20,
@@ -324,23 +369,65 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                OutlinedButton.icon(
+                FilledButton.icon(
                   onPressed: _logout,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFD64545),
+                    foregroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(52),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.logout),
+                  icon: const Icon(Icons.logout, color: Colors.white),
                   label: const Text('Cerrar sesión'),
                 ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: Icon(icon, color: colorScheme.onSurface),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

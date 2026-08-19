@@ -15,7 +15,7 @@ class ChatSummary {
 
   factory ChatSummary.fromJson(Map<String, dynamic> json) {
     return ChatSummary(
-      id: json['id'] as String,
+      id: (json['id'] ?? '').toString(),
       title: json['title'] as String? ?? 'Conversación',
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'] as String)
@@ -120,11 +120,23 @@ class ChatDetail {
 }
 
 class AskResponse {
-  const AskResponse({this.chatId});
+  const AskResponse({this.chatId, this.text});
 
   final String? chatId;
+  final String? text;
 
   factory AskResponse.fromJson(Map<String, dynamic> json) {
-    return AskResponse(chatId: json['chat_id'] as String?);
+    String? text = json['text'] as String? ??
+        json['answer'] as String? ??
+        json['message'] as String? ??
+        json['markdown'] as String?;
+    final content = json['content'];
+    if ((text == null || text.isEmpty) && content is Map) {
+      text = content['text'] as String?;
+    }
+    return AskResponse(
+      chatId: json['chat_id'] as String?,
+      text: text,
+    );
   }
 }

@@ -13,8 +13,8 @@ class LoginAppMark extends StatelessWidget {
 
     return Column(
       children: [
-        Image.asset(
-          'lib/img/logo.png',
+        SvgPicture.asset(
+          'lib/img/logo.svg',
           width: _logoSize,
           height: _logoSize,
           fit: BoxFit.contain,

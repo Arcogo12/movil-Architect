@@ -3,7 +3,6 @@ import 'package:movil_architect/controllers/splash_controller.dart';
 import 'package:movil_architect/views/dashboard/dashboard_view.dart';
 import 'package:movil_architect/views/login/login_view.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
-import 'package:movil_architect/views/settings/settings_view.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
 
 class SplashView extends StatefulWidget {
@@ -59,7 +58,7 @@ class _SplashViewState extends State<SplashView> {
             return const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                LoginAppMark(),
+                _SplashBrandMark(),
                 SizedBox(height: 32),
                 AppLoadingView(message: 'Conectando con el servidor...'),
               ],
@@ -78,19 +77,58 @@ class _SplashViewState extends State<SplashView> {
           return const AppLoadingView();
         },
       ),
-      floatingActionButton: _controller.status == SplashStatus.serverError
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const SettingsView(),
-                  ),
-                );
-              },
-              label: const Text('Configurar servidor'),
-              icon: const Icon(Icons.settings),
-            )
-          : null,
+    );
+  }
+}
+
+/// Logo de arranque: aparece con fade y escala al abrir la app.
+class _SplashBrandMark extends StatefulWidget {
+  const _SplashBrandMark();
+
+  @override
+  State<_SplashBrandMark> createState() => _SplashBrandMarkState();
+}
+
+class _SplashBrandMarkState extends State<_SplashBrandMark>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+    _scale = Tween<double>(begin: 0.78, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        child: const LoginAppMark(),
+      ),
     );
   }
 }

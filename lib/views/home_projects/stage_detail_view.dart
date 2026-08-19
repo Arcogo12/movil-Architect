@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/home_project_controller.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/core/utils/date_utils.dart';
 import 'package:movil_architect/models/home_project_models.dart';
 import 'package:movil_architect/views/home_projects/section_detail_view.dart';
@@ -157,12 +158,9 @@ class StageDetailView extends StatelessWidget {
     Navigator.pop(context);
 
     if (analyses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            controller.actionError ?? 'No hay análisis disponibles',
-          ),
-        ),
+      AppNotifications.error(
+        context,
+        controller.actionError ?? 'No hay análisis disponibles',
       );
       return;
     }
@@ -199,14 +197,11 @@ class StageDetailView extends StatelessWidget {
       analysisId: selected.id,
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Plano vinculado'
-              : (controller.actionError ?? 'No se pudo vincular'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: ok,
+      successMessage: 'Plano vinculado',
+      errorMessage: controller.actionError,
     );
   }
 

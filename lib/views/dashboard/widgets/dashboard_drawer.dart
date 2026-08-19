@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/dashboard_controller.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/core/utils/date_utils.dart';
 import 'package:movil_architect/models/chat_models.dart';
 
@@ -11,6 +12,7 @@ class DashboardDrawer extends StatefulWidget {
     required this.onSettings,
     required this.onChatOpen,
     required this.onStageAdmin,
+    required this.onPlans,
     this.onChatDeleted,
   });
 
@@ -19,6 +21,7 @@ class DashboardDrawer extends StatefulWidget {
   final VoidCallback onSettings;
   final ValueChanged<String> onChatOpen;
   final VoidCallback onStageAdmin;
+  final VoidCallback onPlans;
   final ValueChanged<String>? onChatDeleted;
 
   @override
@@ -78,11 +81,15 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
       await widget.controller.deleteChat(chat.id);
       if (_selectedChatId == chat.id) _selectedChatId = null;
       widget.onChatDeleted?.call(chat.id);
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        AppNotifications.success(context, 'Conversación eliminada');
+      }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo eliminar la conversación')),
+      AppNotifications.error(
+        context,
+        'No se pudo eliminar la conversación',
       );
     }
   }
@@ -102,14 +109,15 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
 
     return Drawer(
       backgroundColor: drawerColor,
-      width: MediaQuery.sizeOf(context).width * 0.88,
+      width: (MediaQuery.sizeOf(context).width * 0.80).clamp(280.0, 320.0),
       child: SafeArea(
         child: ListenableBuilder(
           listenable: widget.controller,
           builder: (context, _) {
             final user = widget.controller.user;
-            final planName =
-                widget.controller.subscription?.plan.name ?? 'Plan';
+            final userLabel = user?.fullName.isNotEmpty == true
+                ? user!.fullName
+                : user?.email ?? 'Usuario';
             final chats = _filteredChats;
             final activeChatId = widget.controller.activeChatId;
             if (activeChatId != null) {
@@ -123,7 +131,7 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                   child: Text(
                     'ARCHITECT',
                     style: TextStyle(
@@ -135,51 +143,80 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   child: _SearchField(controller: _searchController),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _NewChatButton(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onNewChat();
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _StageAdminModule(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      widget.onStageAdmin();
-                    },
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  child: Column(
+                    children: [
+                      _DrawerNavModule(
+                        icon: Icons.home_work_outlined,
+                        label: 'Casa hogar',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          widget.onStageAdmin();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _DrawerNavModule(
+                        icon: Icons.workspace_premium_outlined,
+                        label: 'Planes',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          widget.onPlans();
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () => widget.controller.load(refresh: true),
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-                      children: [
-                        _CollapsibleHistoryHeader(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 16, 10, 0),
+                        child: _CollapsibleHistoryHeader(
                           title: 'RECIENTES',
-                          count: chats.length,
                           expanded: _chatsExpanded,
                           onTap: () =>
                               setState(() => _chatsExpanded = !_chatsExpanded),
                         ),
-                        AnimatedCrossFade(
-                          firstChild: const SizedBox.shrink(),
-                          secondChild: Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      ),
+                      if (_chatsExpanded)
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: () =>
+                                widget.controller.load(refresh: true),
                             child: chats.isEmpty
-                                ? _HistoryEmptyMessage(
-                                    message:
-                                        'No hay chats recientes.\nInicia uno con + Nuevo chat.',
+                                ? LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return SingleChildScrollView(
+                                        physics:
+                                            const AlwaysScrollableScrollPhysics(),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight: constraints.maxHeight,
+                                          ),
+                                          child: const Center(
+                                            child: _HistoryEmptyMessage(
+                                              message:
+                                                  'No hay chats recientes.\nUsa Chat abajo.',
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   )
-                                : Column(
+                                : ListView(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      10,
+                                      4,
+                                      10,
+                                      8,
+                                    ),
                                     children: [
                                       for (final item in chats)
                                         _ChatHistoryTile(
@@ -187,34 +224,30 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                                           subtitle: formatRelativeTime(
                                             item.updatedAt,
                                           ),
-                                          badge: '${item.messageCount}',
-                                          selected: item.id == _selectedChatId,
+                                          selected:
+                                              item.id == _selectedChatId,
+                                          pinned: widget.controller
+                                              .isChatPinned(item.id),
                                           onTap: () => _openChat(item),
-                                          onMore: item.id == _selectedChatId
-                                              ? () => _showChatMenu(item)
-                                              : null,
+                                          onLongPress: () =>
+                                              _showChatOptions(item),
                                         ),
                                     ],
                                   ),
                           ),
-                          crossFadeState: _chatsExpanded
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 200),
-                          sizeCurve: Curves.easeInOut,
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
                 _DrawerUserFooter(
-                  name: user?.fullName.isNotEmpty == true
-                      ? user!.fullName
-                      : user?.email ?? 'Usuario',
-                  planLabel: 'Plan $planName',
+                  name: userLabel,
                   onSettings: () {
                     Navigator.of(context).pop();
                     widget.onSettings();
+                  },
+                  onNewChat: () {
+                    Navigator.of(context).pop();
+                    widget.onNewChat();
                   },
                 ),
               ],
@@ -225,29 +258,42 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
     );
   }
 
-  void _showChatMenu(ChatSummary chat) {
+  Future<void> _togglePinChat(ChatSummary chat, {required bool wasPinned}) async {
+    await widget.controller.togglePinChat(chat.id);
+    if (!mounted) return;
+    setState(() {});
+    AppNotifications.success(
+      context,
+      wasPinned ? 'Chat desfijado' : 'Chat fijado',
+    );
+  }
+
+  void _showChatOptions(ChatSummary chat) {
+    final isPinned = widget.controller.isChatPinned(chat.id);
     showModalBottomSheet<void>(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.open_in_new),
-              title: const Text('Abrir conversación'),
+              leading: Icon(
+                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+              ),
+              title: Text(isPinned ? 'Desfijar' : 'Fijar'),
               onTap: () {
-                Navigator.pop(context);
-                _openChat(chat);
+                Navigator.pop(sheetContext);
+                _togglePinChat(chat, wasPinned: isPinned);
               },
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text(
-                'Eliminar conversación',
+                'Eliminar',
                 style: TextStyle(color: Colors.red),
               ),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 _confirmDelete(chat);
               },
             ),
@@ -311,18 +357,18 @@ class _NewChatButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        child: SizedBox(
-          height: 52,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add, color: fgColor, size: 22),
-              const SizedBox(width: 8),
+              Icon(Icons.add, color: fgColor, size: 18),
+              const SizedBox(width: 5),
               Text(
-                'Nuevo chat',
+                'Chat',
                 style: TextStyle(
                   color: fgColor,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -334,11 +380,15 @@ class _NewChatButton extends StatelessWidget {
   }
 }
 
-class _StageAdminModule extends StatelessWidget {
-  const _StageAdminModule({
+class _DrawerNavModule extends StatelessWidget {
+  const _DrawerNavModule({
+    required this.icon,
+    required this.label,
     required this.onTap,
   });
 
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -357,13 +407,23 @@ class _StageAdminModule extends StatelessWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Text(
-            'Casa hogar',
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: colorScheme.onSurface,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -374,13 +434,11 @@ class _StageAdminModule extends StatelessWidget {
 class _CollapsibleHistoryHeader extends StatelessWidget {
   const _CollapsibleHistoryHeader({
     required this.title,
-    required this.count,
     required this.expanded,
     required this.onTap,
   });
 
   final String title;
-  final int count;
   final bool expanded;
   final VoidCallback onTap;
 
@@ -408,24 +466,6 @@ class _CollapsibleHistoryHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              if (count > 0)
-                Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
               AnimatedRotation(
                 turns: expanded ? 0.5 : 0,
                 duration: const Duration(milliseconds: 200),
@@ -471,18 +511,18 @@ class _ChatHistoryTile extends StatelessWidget {
   const _ChatHistoryTile({
     required this.title,
     required this.subtitle,
-    required this.badge,
     required this.selected,
     required this.onTap,
-    this.onMore,
+    this.pinned = false,
+    this.onLongPress,
   });
 
   final String title;
   final String subtitle;
-  final String badge;
   final bool selected;
+  final bool pinned;
   final VoidCallback onTap;
-  final VoidCallback? onMore;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -498,11 +538,20 @@ class _ChatHistoryTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
+                if (pinned) ...[
+                  Icon(
+                    Icons.push_pin,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,33 +578,6 @@ class _ChatHistoryTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    badge,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                if (onMore != null)
-                  IconButton(
-                    onPressed: onMore,
-                    icon: Icon(
-                      Icons.more_horiz,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
               ],
             ),
           ),
@@ -568,13 +590,13 @@ class _ChatHistoryTile extends StatelessWidget {
 class _DrawerUserFooter extends StatelessWidget {
   const _DrawerUserFooter({
     required this.name,
-    required this.planLabel,
     required this.onSettings,
+    required this.onNewChat,
   });
 
   final String name;
-  final String planLabel;
   final VoidCallback onSettings;
+  final VoidCallback onNewChat;
 
   @override
   Widget build(BuildContext context) {
@@ -586,57 +608,39 @@ class _DrawerUserFooter extends StatelessWidget {
         : Colors.white;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
       child: Material(
         color: cardColor,
         elevation: isDark ? 0 : 1,
         shadowColor: Colors.black.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: colorScheme.surfaceContainerHigh,
-                child: Text(
-                  initial,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
+              _NewChatButton(onTap: onNewChat),
+              const Spacer(),
+              Material(
+                color: const Color(0xFFF4CFCF),
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onSettings,
+                  customBorder: const CircleBorder(),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 17,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      planLabel,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: onSettings,
-                icon: Icon(
-                  Icons.settings_outlined,
-                  color: colorScheme.onSurface,
                 ),
               ),
             ],

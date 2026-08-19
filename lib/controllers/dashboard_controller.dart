@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
+import 'package:movil_architect/core/storage/secure_storage_service.dart';
 import 'package:movil_architect/models/analysis_models.dart';
+import 'package:movil_architect/models/app_config_models.dart';
 import 'package:movil_architect/models/auth_models.dart';
 import 'package:movil_architect/models/chat_models.dart';
 import 'package:movil_architect/services/auth_service.dart';
@@ -15,18 +17,23 @@ class DashboardController extends ChangeNotifier {
   DashboardController({
     AuthService? authService,
     MobileApiService? mobileApiService,
+    SecureStorageService? secureStorage,
   })  : _authService = authService ?? AppServices.instance.authService,
         _mobileApiService =
-            mobileApiService ?? AppServices.instance.mobileApiService;
+            mobileApiService ?? AppServices.instance.mobileApiService,
+        _secureStorage =
+            secureStorage ?? AppServices.instance.secureStorage;
 
   final AuthService _authService;
   final MobileApiService _mobileApiService;
+  final SecureStorageService _secureStorage;
   final TextEditingController askController = TextEditingController();
 
   DashboardState _state = DashboardState.loading;
   String? _errorMessage;
   List<AnalysisSummary> _analyses = [];
   List<ChatSummary> _chats = [];
+  final Set<String> _pinnedChatIds = {};
   bool _isSendingAsk = false;
   String? _askErrorMessage;
   String? _activeChatId;
@@ -39,11 +46,13 @@ class DashboardController extends ChangeNotifier {
   File? _displayPlanoFile;
   String? _displayPlanoName;
   int _planoLoadGeneration = 0;
+  PlanoPreview? _pendingPreview;
 
   DashboardState get state => _state;
   String? get errorMessage => _errorMessage;
   List<AnalysisSummary> get analyses => _analyses;
   List<ChatSummary> get chats => _chats;
+  bool isChatPinned(String chatId) => _pinnedChatIds.contains(chatId);
   UserModel? get user => _authService.currentUser;
   SubscriptionModel? get subscription => _authService.subscription;
   bool get isSendingAsk => _isSendingAsk;
@@ -65,6 +74,7 @@ class DashboardController extends ChangeNotifier {
   String? get displayPlanoName => _displayPlanoName ?? _pendingPlanoName;
   double? get displayPlanoLoadProgress =>
       _isLoadingPendingPlano ? _pendingPlanoLoadProgress : null;
+  PlanoPreview? get pendingPreview => _pendingPreview;
 
   void _clearDisplayPlano() {
     _displayPlanoFile = null;
@@ -117,6 +127,11 @@ class DashboardController extends ChangeNotifier {
       if (generation != _planoLoadGeneration) return;
       _pendingPlanoFile = file;
       _pendingPlanoLoadProgress = 1;
+      try {
+        _pendingPreview = await _mobileApiService.previewPlano(file);
+      } catch (_) {
+        _pendingPreview = null;
+      }
     } catch (_) {
       if (generation != _planoLoadGeneration) return;
       _askErrorMessage = 'No se pudo cargar el plano.';
@@ -135,6 +150,7 @@ class DashboardController extends ChangeNotifier {
     _pendingPlanoFile = null;
     _pendingPlanoName = null;
     _pendingPlanoLoadProgress = 0;
+    _pendingPreview = null;
     _clearDisplayPlano();
     notifyListeners();
   }
@@ -145,6 +161,7 @@ class DashboardController extends ChangeNotifier {
     _pendingPlanoFile = null;
     _pendingPlanoName = null;
     _pendingPlanoLoadProgress = 0;
+    _pendingPreview = null;
     _clearDisplayPlano();
     notifyListeners();
   }
@@ -176,6 +193,11 @@ class DashboardController extends ChangeNotifier {
         message: text.isEmpty ? null : text,
         chatId: _activeChatId,
       );
+
+      final chatId = result.chatId ?? _activeChatId;
+      if (chatId != null && chatId.isNotEmpty) {
+        _activeChatId = chatId;
+      }
 
       _pendingAskMessage = null;
       _clearDisplayPlano();
@@ -211,6 +233,21 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> createNewChat() async {
+    try {
+      final chat = await _mobileApiService.createChat();
+      _chats = [chat, ..._chats.where((item) => item.id != chat.id)];
+      _activeChatId = chat.id;
+      _pendingAskMessage = null;
+      notifyListeners();
+      return chat.id;
+    } on ApiException catch (error) {
+      _askErrorMessage = error.message;
+      notifyListeners();
+      return null;
+    }
+  }
+
   void clearActiveChat() {
     _activeChatId = null;
     _pendingAskMessage = null;
@@ -233,6 +270,8 @@ class DashboardController extends ChangeNotifier {
       );
 
       _chats = await _mobileApiService.listChats();
+      await _loadPinnedChats();
+      _sortChats();
       _analyses = await _mobileApiService.listAnalyses();
       _state = DashboardState.success;
       _errorMessage = null;
@@ -252,11 +291,55 @@ class DashboardController extends ChangeNotifier {
   Future<void> deleteChat(String chatId) async {
     await _mobileApiService.deleteChat(chatId);
     _chats.removeWhere((chat) => chat.id == chatId);
+    _pinnedChatIds.remove(chatId);
+    await _savePinnedChats();
     if (_activeChatId == chatId) {
       _activeChatId = null;
       _pendingAskMessage = null;
     }
     notifyListeners();
+  }
+
+  Future<void> togglePinChat(String chatId) async {
+    if (_pinnedChatIds.contains(chatId)) {
+      _pinnedChatIds.remove(chatId);
+    } else {
+      _pinnedChatIds.add(chatId);
+    }
+    await _savePinnedChats();
+    _sortChats();
+    notifyListeners();
+  }
+
+  Future<void> _loadPinnedChats() async {
+    try {
+      final ids = await _secureStorage.getPinnedChatIds();
+      _pinnedChatIds
+        ..clear()
+        ..addAll(ids);
+    } catch (_) {
+      _pinnedChatIds.clear();
+    }
+    _pinnedChatIds.removeWhere(
+      (id) => !_chats.any((chat) => chat.id == id),
+    );
+  }
+
+  Future<void> _savePinnedChats() async {
+    try {
+      await _secureStorage.savePinnedChatIds(_pinnedChatIds.toList());
+    } catch (_) {}
+  }
+
+  void _sortChats() {
+    _chats.sort((a, b) {
+      final aPinned = _pinnedChatIds.contains(a.id);
+      final bPinned = _pinnedChatIds.contains(b.id);
+      if (aPinned != bPinned) return aPinned ? -1 : 1;
+      final aTime = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bTime.compareTo(aTime);
+    });
   }
 
   Future<void> deleteAllChats() async {
@@ -274,6 +357,8 @@ class DashboardController extends ChangeNotifier {
         failed++;
       }
     }
+    _pinnedChatIds.clear();
+    await _savePinnedChats();
     notifyListeners();
     if (failed > 0) {
       throw ApiException(
@@ -296,11 +381,17 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      var chatId = _activeChatId;
+      if (chatId == null || chatId.isEmpty) {
+        final created = await _mobileApiService.createChat();
+        chatId = created.id;
+        _activeChatId = chatId;
+      }
       final response = await _mobileApiService.sendAsk(
         message: text,
-        chatId: _activeChatId,
+        chatId: chatId,
       );
-      _activeChatId = response.chatId ?? _activeChatId;
+      _activeChatId = response.chatId ?? chatId;
       await load(refresh: true);
       _pendingAskMessage = null;
       _isSendingAsk = false;

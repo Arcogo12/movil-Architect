@@ -121,6 +121,30 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<bool> correctFromMessage(String message) async {
+    final analysisId = _detail?.lastAnalysisId;
+    if (analysisId == null || message.trim().length < 3) return false;
+    _state = ChatState.sending;
+    notifyListeners();
+    try {
+      await _mobileApiService.correctFromMessage(
+        analysisId: analysisId,
+        message: message,
+        chatId: chatId,
+      );
+      if (_disposed) return false;
+      await load(showLoading: false);
+      _state = ChatState.success;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _errorMessage = error.message;
+      _state = ChatState.success;
+      notifyListeners();
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _disposed = true;

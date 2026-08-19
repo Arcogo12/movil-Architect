@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/login_controller.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/theme/app_colors.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
+import 'package:movil_architect/views/auth/forgot_password_view.dart';
+import 'package:movil_architect/views/auth/google_auth_view.dart';
 import 'package:movil_architect/views/dashboard/dashboard_view.dart';
-import 'package:movil_architect/views/login/server_connection_view.dart';
+import 'package:movil_architect/views/guest/guest_view.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
 import 'package:movil_architect/views/register/register_view.dart';
 
@@ -16,36 +19,37 @@ class LoginView extends StatefulWidget {
 
 class _LoginViewState extends State<LoginView> {
   late final LoginController _controller;
-  String _serverUrl = '';
 
   @override
   void initState() {
     super.initState();
-    _controller = LoginController();
-    _loadServerUrl();
-  }
-
-  Future<void> _loadServerUrl() async {
-    final url = await AppServices.instance.settingsStorage.getServerUrl();
-    if (!mounted) return;
-    setState(() => _serverUrl = url);
-  }
-
-  Future<void> _openServerConnection() async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => const ServerConnectionView(),
-      ),
-    );
-    if (saved == true) {
-      await _loadServerUrl();
-    }
+    _controller = LoginController()..loadGoogleAvailability();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleGoogle() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => GoogleAuthView(
+          startUrl: AppServices.instance.authService.googleAuthUrl(),
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    if (result.startsWith('error:')) {
+      AppNotifications.error(context, result.substring(6));
+      return;
+    }
+    if (!await _controller.completeGoogle(result)) return;
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const DashboardView()),
+    );
   }
 
   Future<void> _handleLogin() async {
@@ -55,15 +59,6 @@ class _LoginViewState extends State<LoginView> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => const DashboardView()),
     );
-  }
-
-  String get _serverHint {
-    if (_serverUrl.isEmpty) return 'Sin servidor configurado';
-    final clean = _serverUrl
-        .replaceFirst(RegExp(r'^https?://'), '')
-        .replaceFirst(RegExp(r'/$'), '');
-    if (clean.length <= 36) return clean;
-    return '${clean.substring(0, 18)}…${clean.substring(clean.length - 14)}';
   }
 
   @override
@@ -80,17 +75,6 @@ class _LoginViewState extends State<LoginView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: _openServerConnection,
-                      icon: const Icon(Icons.dns_outlined, size: 18),
-                      label: const Text('Servidor'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.iosBlue,
-                      ),
-                    ),
-                  ),
                   const Center(child: LoginAppMark()),
                   const SizedBox(height: 40),
                   const Text(
@@ -151,63 +135,15 @@ class _LoginViewState extends State<LoginView> {
                     onPressed: _handleLogin,
                   ),
                   const SizedBox(height: 16),
-                  Material(
-                    color: AppColors.loginFieldFill,
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      onTap: _openServerConnection,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.link_rounded,
-                              size: 22,
-                              color: AppColors.iosBlue,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Conectar al servidor',
-                                    style: TextStyle(
-                                      color: AppColors.ink,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _serverHint,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.muted,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Center(
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ForgotPasswordView(),
+                          ),
+                        );
+                      },
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.muted,
                       ),
@@ -228,10 +164,23 @@ class _LoginViewState extends State<LoginView> {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  const LoginSocialDivider(),
-                  const SizedBox(height: 20),
-                  LoginGoogleButton(onPressed: () {}),
-                  const SizedBox(height: 32),
+                  if (_controller.googleEnabled) ...[
+                    const LoginSocialDivider(),
+                    const SizedBox(height: 20),
+                    LoginGoogleButton(onPressed: _handleGoogle),
+                    const SizedBox(height: 16),
+                  ],
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const GuestView(),
+                        ),
+                      );
+                    },
+                    child: const Text('Continuar sin cuenta'),
+                  ),
+                  const SizedBox(height: 16),
                   const LoginLegalFooter(),
                 ],
               ),

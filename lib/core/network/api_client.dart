@@ -34,7 +34,7 @@ class ApiClient {
         },
         onError: (error, handler) async {
           if (error.response?.statusCode == 401 &&
-              !_isAuthCredentialRequest(error.requestOptions.path)) {
+              !_isAuthCredentialRequest(error.requestOptions)) {
             await _secureStorage.clearToken();
             onUnauthorized?.call();
           }
@@ -42,6 +42,20 @@ class ApiClient {
         },
       ),
     );
+
+    if (kDebugMode) {
+      _dio.interceptors.add(
+        LogInterceptor(
+          request: true,
+          requestHeader: false,
+          requestBody: false,
+          responseHeader: false,
+          responseBody: false,
+          error: true,
+          logPrint: (object) => debugPrint(object.toString()),
+        ),
+      );
+    }
   }
 
   final SettingsStorage _settingsStorage;
@@ -52,8 +66,19 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  static bool _isAuthCredentialRequest(String path) {
-    return path.contains('/login') || path.contains('/register');
+  static bool _isAuthCredentialRequest(RequestOptions options) {
+    final path = options.path;
+    final method = options.method.toUpperCase();
+    if (path.contains('/login') ||
+        path.contains('/register') ||
+        path.contains('/forgot-password') ||
+        path.contains('/reset-password') ||
+        path.contains('/auth/google') ||
+        path.contains('/auth/me/password')) {
+      return true;
+    }
+    if (method == 'DELETE' && path.contains('/auth/me')) return true;
+    return false;
   }
 
   Future<void> refreshBaseUrl() async {

@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/chat_controller.dart';
 import 'package:movil_architect/controllers/dashboard_controller.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/models/chat_models.dart';
 import 'package:movil_architect/views/analyze/analyze_view.dart';
 import 'package:movil_architect/views/chat/widgets/chat_message_bubble.dart';
 import 'package:movil_architect/views/chat/widgets/chat_messages_list.dart';
 import 'package:movil_architect/views/chat/widgets/plano_chat_attachment.dart';
 import 'package:movil_architect/views/chat/widgets/typing_indicator_bubble.dart';
+import 'package:movil_architect/views/billing/billing_view.dart';
 import 'package:movil_architect/views/dashboard/widgets/dashboard_drawer.dart';
 import 'package:movil_architect/views/dashboard/widgets/dashboard_shell.dart';
 import 'package:movil_architect/views/settings/settings_view.dart';
@@ -88,9 +90,7 @@ class _DashboardViewState extends State<DashboardView> {
       _chatController?.dispose();
       _chatController = null;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Esa conversación ya no existe')),
-      );
+      AppNotifications.error(context, 'Esa conversación ya no existe');
       return;
     }
 
@@ -104,9 +104,19 @@ class _DashboardViewState extends State<DashboardView> {
     setState(() {});
   }
 
-  void _newChat() {
+  Future<void> _newChat() async {
     _closeChat();
     _controller.askController.clear();
+    final chatId = await _controller.createNewChat();
+    if (chatId != null && mounted) {
+      await _activateChat(chatId);
+    }
+  }
+
+  Future<void> _startNewChat() async {
+    await _newChat();
+    if (!mounted) return;
+    await _openAttachmentPicker();
   }
 
   void _openCasaHogar() {
@@ -117,9 +127,12 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  Future<void> _startNewChat() async {
-    _newChat();
-    await _openAttachmentPicker();
+  void _openPlans() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const BillingView(),
+      ),
+    );
   }
 
   Future<void> _openAnalyze({File? initialFile, String? initialFileName}) async {
@@ -184,9 +197,7 @@ class _DashboardViewState extends State<DashboardView> {
       final ok = await _chatController!.sendMessage();
       if (!mounted) return;
       if (_chatController!.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_chatController!.errorMessage!)),
-        );
+        AppNotifications.error(context, _chatController!.errorMessage!);
       }
       if (ok) await _controller.load(refresh: true);
       if (mounted) setState(() {});
@@ -198,9 +209,7 @@ class _DashboardViewState extends State<DashboardView> {
     if (!mounted) return;
 
     if (_controller.askErrorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_controller.askErrorMessage!)),
-      );
+      AppNotifications.error(context, _controller.askErrorMessage!);
       return;
     }
 
@@ -222,9 +231,7 @@ class _DashboardViewState extends State<DashboardView> {
     if (!mounted) return;
 
     if (_controller.askErrorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_controller.askErrorMessage!)),
-      );
+      AppNotifications.error(context, _controller.askErrorMessage!);
       return;
     }
 
@@ -376,6 +383,7 @@ class _DashboardViewState extends State<DashboardView> {
           }
         },
         onStageAdmin: _openCasaHogar,
+        onPlans: _openPlans,
       ),
       body: SafeArea(
         child: Column(
@@ -401,7 +409,9 @@ class _DashboardViewState extends State<DashboardView> {
                     children: [
                       DashboardTopBar(
                         onMenuTap: _openDrawer,
-                        onNewChatTap: _newChat,
+                        onNewChatTap: () {
+                          _newChat();
+                        },
                       ),
                       Expanded(
                         child: _showChatArea

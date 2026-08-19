@@ -3,6 +3,7 @@ import 'package:movil_architect/core/theme/app_colors.dart';
 import 'package:movil_architect/core/utils/image_utils.dart';
 import 'package:movil_architect/models/chat_models.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
+import 'package:movil_architect/views/shared/markdown_text.dart';
 
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({super.key, required this.message});
@@ -97,6 +98,8 @@ class _AssistantBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const AiReplyHeader(),
+          const SizedBox(height: 10),
           if (verdict != null && verdict.headline.isNotEmpty) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,12 +142,41 @@ class _AssistantBubble extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           if (content.text != null && content.text!.isNotEmpty)
-            Text(
-              content.text!,
+            MarkdownText(
+              data: content.text!,
               style: const TextStyle(color: AppColors.ink, height: 1.45),
             ),
         ],
       ),
+    );
+  }
+}
+
+class AiReplyHeader extends StatelessWidget {
+  const AiReplyHeader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.dashboardIconBg,
+            shape: BoxShape.circle,
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(5),
+            child: Icon(
+              Icons.auto_awesome,
+              size: 12,
+              color: AppColors.ink,
+            ),
+          ),
+        ),
+        SizedBox(width: 8),
+   
+      ],
     );
   }
 }

@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:movil_architect/core/network/api_client.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
+import 'package:movil_architect/core/utils/json_utils.dart';
 import 'package:movil_architect/models/analysis_models.dart';
+import 'package:movil_architect/models/app_config_models.dart';
 import 'package:movil_architect/models/auth_models.dart';
 import 'package:movil_architect/models/chat_models.dart';
 
@@ -14,10 +16,17 @@ class MobileApiService {
 
   Future<HealthResponse> health() async {
     try {
-      final response = await _apiClient.dio.get<Map<String, dynamic>>(
-        '/api/health',
-      );
-      return HealthResponse.fromJson(response.data ?? {});
+      final response = await _apiClient.dio.get<dynamic>('/api/health');
+      final data = asJsonMap(response.data);
+      if (data.isEmpty && response.statusCode != null && response.statusCode! >= 400) {
+        throw ApiException(
+          message: 'Error en el servidor al procesar la solicitud.',
+          statusCode: response.statusCode,
+        );
+      }
+      return HealthResponse.fromJson(data);
+    } on ApiException {
+      rethrow;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
@@ -154,6 +163,113 @@ class MobileApiService {
         data: formData,
       );
 
+      return AnalysisResult.fromJson(response.data ?? {});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<ChatSummary> createChat({String title = 'Nuevo chat'}) async {
+    try {
+      final response = await _apiClient.dio.post<dynamic>(
+        '/api/chats',
+        data: {'title': title},
+      );
+      final map = asJsonMap(response.data);
+      if (map['chat'] is Map) {
+        return ChatSummary.fromJson(asJsonMap(map['chat']));
+      }
+      return ChatSummary.fromJson(map);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<PlanoPreview> previewPlano(File file) async {
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        '/api/plano/preview',
+        data: FormData.fromMap({
+          'file': await MultipartFile.fromFile(
+            file.path,
+            filename: file.uri.pathSegments.last,
+          ),
+        }),
+      );
+      return PlanoPreview.fromJson(response.data ?? {});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> getNorms() async {
+    try {
+      final response = await _apiClient.dio.get<dynamic>('/api/norms');
+      return asJsonMap(response.data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<AppRemoteConfig> getConfig() async {
+    try {
+      final response = await _apiClient.dio.get<Map<String, dynamic>>('/api/config');
+      return AppRemoteConfig.fromJson(response.data ?? {});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<AskStatus> getAskStatus() async {
+    try {
+      final response =
+          await _apiClient.dio.get<Map<String, dynamic>>('/api/ask/status');
+      return AskStatus.fromJson(response.data ?? {});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<AnalysisResult> correctDetection({
+    required int analysisId,
+    required int detectionIndex,
+    required String action,
+    String? newClass,
+    String? note,
+    String? chatId,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        '/api/analyses/$analysisId/corrections',
+        queryParameters: {
+          if (chatId != null && chatId.isNotEmpty) 'chat_id': chatId,
+        },
+        data: {
+          'detection_index': detectionIndex,
+          'action': action,
+          'new_class': newClass,
+          'note': note ?? '',
+        },
+      );
+      return AnalysisResult.fromJson(response.data ?? {});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<AnalysisResult> correctFromMessage({
+    required int analysisId,
+    required String message,
+    String? chatId,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        '/api/analyses/$analysisId/correct-from-message',
+        data: {
+          'message': message.trim(),
+          if (chatId != null && chatId.isNotEmpty) 'chat_id': chatId,
+        },
+      );
       return AnalysisResult.fromJson(response.data ?? {});
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

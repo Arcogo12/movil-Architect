@@ -29,7 +29,11 @@ class SplashController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint(
+        'Splash health → ${AppServices.instance.apiClient.dio.options.baseUrl}/api/health',
+      );
       final health = await _mobileApiService.health();
+      debugPrint('Splash health ok=${health.ok} version=${health.version}');
       if (!health.ok) {
         _status = SplashStatus.serverError;
         _errorMessage = 'El servidor respondió pero no está listo.';
@@ -44,22 +48,31 @@ class SplashController extends ChangeNotifier {
         return;
       }
 
-      final me = await _mobileApiService.me();
-      _authService.updateSession(
-        user: me.user,
-        subscription: me.subscription,
-      );
-      _status = SplashStatus.readyDashboard;
-    } on ApiException catch (error) {
-      // Solo cerrar sesión si el token ya no es válido (401), no por fallos de red.
-      if (!error.isOffline &&
-          error.statusCode == 401 &&
-          await _authService.hasToken()) {
+      try {
+        final me = await _mobileApiService.me();
+        _authService.updateSession(
+          user: me.user,
+          subscription: me.subscription,
+        );
+        _status = SplashStatus.readyDashboard;
+      } on ApiException catch (error) {
         await _authService.logout();
+        if (error.isOffline) {
+          _status = SplashStatus.serverError;
+          _errorMessage = error.message;
+        } else {
+          // Token inválido o el backend falló al cargar el perfil.
+          _status = SplashStatus.readyLogin;
+        }
       }
+    } on ApiException catch (error) {
+      debugPrint(
+        'Splash ApiException status=${error.statusCode} offline=${error.isOffline} ${error.message}',
+      );
       _status = SplashStatus.serverError;
       _errorMessage = error.message;
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Splash error: $error');
       _status = SplashStatus.serverError;
       _errorMessage = 'No se pudo conectar al servidor.';
     }

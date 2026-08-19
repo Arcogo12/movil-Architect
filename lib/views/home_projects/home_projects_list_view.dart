@@ -66,15 +66,20 @@ class _HomeProjectsListViewState extends State<HomeProjectsListView> {
                 MaterialPageRoute(builder: (_) => const AcceptInviteView()),
               );
             },
-            icon: const Icon(Icons.mail_outline),
+            icon: const Icon(Icons.mail_outline, color: Color.fromARGB(255, 12, 128, 37)),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreate,
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo proyecto'),
+        icon: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: Colors.black,
+        label: const Text(
+          'Nuevo proyecto',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
+ 
       body: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {

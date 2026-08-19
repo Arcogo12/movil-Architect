@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/home_project_controller.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/models/home_project_models.dart';
 import 'package:movil_architect/views/home_projects/home_project_detail_view.dart';
 
@@ -171,13 +172,12 @@ class HomeProjectTeamView extends StatelessWidget {
     );
     emailController.dispose();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          status ?? (controller.actionError ?? 'No se pudo invitar'),
-        ),
-      ),
-    );
+    final message = status ?? controller.actionError ?? 'No se pudo invitar';
+    if (status == null || status == 'Sin permiso para invitar.') {
+      AppNotifications.error(context, message);
+    } else {
+      AppNotifications.success(context, message);
+    }
   }
 
   Future<void> _remove(
@@ -204,14 +204,11 @@ class HomeProjectTeamView extends StatelessWidget {
     if (ok != true || !context.mounted) return;
     final success = await controller.removeMember(member.userId);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? 'Miembro eliminado'
-              : (controller.actionError ?? 'No se pudo eliminar'),
-        ),
-      ),
+    AppNotifications.result(
+      context,
+      ok: success,
+      successMessage: 'Miembro eliminado',
+      errorMessage: controller.actionError,
     );
   }
 

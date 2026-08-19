@@ -167,7 +167,7 @@ class HomeProjectCard extends StatelessWidget {
                   value: progress,
                   minHeight: 7,
                   backgroundColor: scheme.surfaceContainerHighest,
-                  color: scheme.onSurface,
+                  color: const Color(0xFF1B8A5A),
                 ),
               ),
             ],

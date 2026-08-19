@@ -132,6 +132,8 @@ class AnalysisResult {
     required this.imageBase64,
     required this.markdown,
     required this.subscription,
+    this.assistantText,
+    this.detections = const [],
   });
 
   final String status;
@@ -143,8 +145,11 @@ class AnalysisResult {
   final String? imageBase64;
   final String? markdown;
   final SubscriptionModel? subscription;
+  final String? assistantText;
+  final List<DetectionModel> detections;
 
   factory AnalysisResult.fromJson(Map<String, dynamic> json) {
+    final detections = json['detections'];
     return AnalysisResult(
       status: json['status'] as String? ?? 'ok',
       analysisId: json['analysis_id'] as int?,
@@ -162,6 +167,19 @@ class AnalysisResult {
               json['subscription'] as Map<String, dynamic>,
             )
           : null,
+      assistantText: json['assistant_text'] as String? ??
+          json['text'] as String? ??
+          json['message'] as String?,
+      detections: detections is List
+          ? [
+              for (var i = 0; i < detections.length; i++)
+                if (detections[i] is Map)
+                  DetectionModel.fromJson(
+                    Map<String, dynamic>.from(detections[i] as Map),
+                    fallbackIndex: i,
+                  ),
+            ]
+          : const [],
     );
   }
 
@@ -174,5 +192,34 @@ class AnalysisResult {
       return '$detections\n\n$issues'.trim();
     }
     return value.toString();
+  }
+}
+
+class DetectionModel {
+  const DetectionModel({
+    required this.index,
+    required this.className,
+    required this.label,
+  });
+
+  final int index;
+  final String className;
+  final String label;
+
+  static const classOptions = ['wall', 'door', 'window', 'room'];
+
+  factory DetectionModel.fromJson(
+    Map<String, dynamic> json, {
+    int fallbackIndex = 0,
+  }) {
+    final className = (json['class'] ?? json['new_class'] ?? json['label'] ?? '')
+        .toString();
+    return DetectionModel(
+      index: (json['detection_index'] as num?)?.toInt() ??
+          (json['index'] as num?)?.toInt() ??
+          fallbackIndex,
+      className: className,
+      label: json['label'] as String? ?? className,
+    );
   }
 }

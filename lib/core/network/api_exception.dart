@@ -4,12 +4,16 @@ class ApiException implements Exception {
   ApiException({
     required this.message,
     this.statusCode,
+    this.code,
     this.isOffline = false,
   });
 
   final String message;
   final int? statusCode;
+  final String? code;
   final bool isOffline;
+
+  bool get isPlanLimit => statusCode == 402;
 
   factory ApiException.fromDio(DioException error) {
     if (error.type == DioExceptionType.connectionError ||
@@ -28,12 +32,17 @@ class ApiException implements Exception {
     final path = error.requestOptions.path;
 
     String message = 'Ocurrió un error inesperado.';
+    String? code;
     if (data is String) {
       message = data.isNotEmpty ? data : message;
     } else if (data is Map && data['detail'] != null) {
       final detail = data['detail'];
       if (detail is String) {
         message = detail;
+      } else if (detail is Map) {
+        code = detail['code']?.toString();
+        final nested = detail['message']?.toString();
+        if (nested != null && nested.isNotEmpty) message = nested;
       } else if (detail is List && detail.isNotEmpty) {
         final first = detail.first;
         if (first is Map && first['msg'] is String) {
@@ -61,7 +70,11 @@ class ApiException implements Exception {
             ? 'No tienes permiso para esta acción.'
             : message;
       case 402:
-        message = 'Has alcanzado el límite mensual de análisis.';
+        if (message == 'Ocurrió un error inesperado.') {
+          message = code == 'trial_exhausted'
+              ? 'Tu prueba se agotó. Crea una cuenta o inicia sesión.'
+              : 'Has alcanzado el límite de tu plan.';
+        }
       case 413:
         message = 'El archivo es demasiado grande.';
       case 400:
@@ -84,7 +97,7 @@ class ApiException implements Exception {
         }
     }
 
-    return ApiException(message: message, statusCode: statusCode);
+    return ApiException(message: message, statusCode: statusCode, code: code);
   }
 
   @override

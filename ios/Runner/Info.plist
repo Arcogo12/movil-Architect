@@ -68,6 +68,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ARCHITECT necesita la cámara para capturar planos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ARCHITECT usa el micrófono para dictado por voz en el chat.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>ARCHITECT usa reconocimiento de voz para transcribir tus mensajes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ARCHITECT necesita acceder a tus fotos para analizar planos.</string>
 	<key>NSAppTransportSecurity</key>

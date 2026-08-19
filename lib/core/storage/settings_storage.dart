@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:movil_architect/core/config/app_config.dart';
 import 'package:movil_architect/core/storage/secure_storage_service.dart';
 
@@ -16,6 +13,12 @@ class SettingsStorage {
 
   Future<String> getServerUrl() async {
     if (_memoryUrl != null && _memoryUrl!.isNotEmpty) {
+      if (AppConfig.isLegacyDevUrl(_memoryUrl!) ||
+          AppConfig.isRemoteTunnelUrl(_memoryUrl!)) {
+        final next = AppConfig.defaultServerUrl();
+        await saveServerUrl(next);
+        return next;
+      }
       return _memoryUrl!;
     }
 
@@ -23,25 +26,8 @@ class SettingsStorage {
       final saved = await _secureStorage.getServerUrl();
       if (saved != null && saved.isNotEmpty) {
         final normalized = AppConfig.normalizeBaseUrl(saved);
-        // Migrar URLs LAN antiguas. En Android debug no pisar el emulador.
-        final preferEmulator = !kIsWeb &&
-            Platform.isAndroid &&
-            kDebugMode &&
-            (AppConfig.isLegacyDevUrl(normalized) ||
-                normalized == AppConfig.sharedNgrokUrl ||
-                normalized.contains('trycloudflare.com') ||
-                normalized.contains('ngrok'));
-
-        if (preferEmulator && normalized != AppConfig.defaultEmulatorUrl) {
-          final next = AppConfig.defaultEmulatorUrl;
-          await saveServerUrl(next);
-          return next;
-        }
-
-        if (!kIsWeb &&
-            (Platform.isAndroid || Platform.isIOS) &&
-            AppConfig.isLegacyDevUrl(normalized) &&
-            normalized != AppConfig.defaultEmulatorUrl) {
+        if (AppConfig.isLegacyDevUrl(normalized) ||
+            AppConfig.isRemoteTunnelUrl(normalized)) {
           final next = AppConfig.defaultServerUrl();
           await saveServerUrl(next);
           return next;

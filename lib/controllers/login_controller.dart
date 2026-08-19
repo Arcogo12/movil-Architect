@@ -19,11 +19,23 @@ class LoginController extends ChangeNotifier {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _googleEnabled = false;
   String? _errorMessage;
 
   bool get obscurePassword => _obscurePassword;
   bool get isLoading => _isLoading;
+  bool get googleEnabled => _googleEnabled;
   String? get errorMessage => _errorMessage;
+
+  Future<void> loadGoogleAvailability() async {
+    try {
+      await AppServices.instance.apiClient.refreshBaseUrl();
+      _googleEnabled = await _authService.isGoogleEnabled();
+    } catch (_) {
+      _googleEnabled = false;
+    }
+    notifyListeners();
+  }
 
   void toggleObscurePassword() {
     _obscurePassword = !_obscurePassword;
@@ -60,6 +72,30 @@ class LoginController extends ChangeNotifier {
       return false;
     } catch (_) {
       _errorMessage = 'No se pudo iniciar sesión. Intenta de nuevo.';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> completeGoogle(String accessToken) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _authService.completeOAuth(accessToken);
+      final me = await AppServices.instance.mobileApiService.me();
+      _authService.updateSession(
+        user: me.user,
+        subscription: me.subscription,
+      );
+      return true;
+    } on ApiException catch (error) {
+      _errorMessage = error.message;
+      return false;
+    } catch (_) {
+      _errorMessage = 'No se pudo completar el acceso con Google.';
       return false;
     } finally {
       _isLoading = false;

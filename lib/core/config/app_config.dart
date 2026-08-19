@@ -4,45 +4,41 @@ import 'package:flutter/foundation.dart';
 
 abstract final class AppConfig {
   /// Override en build/run:
-  /// `--dart-define=API_BASE=https://tu-url.ngrok-free.dev`
+  /// `--dart-define=API_BASE=http://10.0.2.2:8000`
   static const apiBaseFromDefine = String.fromEnvironment('API_BASE');
-
-  /// URL pública de prueba compartida (Cloudflare Tunnel). Sin slash final.
-  static const sharedNgrokUrl =
-      'https://arkansas-vision-custom-sunday.trycloudflare.com';
 
   /// Emulador Android (localhost del PC = 10.0.2.2).
   static const defaultEmulatorUrl = 'http://10.0.2.2:8000';
-
-  /// Default para dispositivo físico / APK compartida = túnel HTTPS.
-  static const defaultPhysicalUrl = sharedNgrokUrl;
 
   static const defaultLocalUrl = 'http://localhost:8000';
 
   /// Prioridad:
   /// 1) `--dart-define=API_BASE`
-  /// 2) Android debug → emulador (`10.0.2.2:8000`)
-  /// 3) iOS / Android release → túnel
-  /// 4) web/desktop → localhost
+  /// 2) Android → emulador / Docker local (`10.0.2.2:8000`)
+  /// 3) iOS / web / desktop → localhost
   static String defaultServerUrl() {
     final fromDefine = apiBaseFromDefine.trim();
     if (fromDefine.isNotEmpty) {
       return normalizeBaseUrl(fromDefine);
     }
     if (kIsWeb) return defaultLocalUrl;
-    if (Platform.isAndroid && kDebugMode) return defaultEmulatorUrl;
-    if (Platform.isAndroid || Platform.isIOS) return defaultPhysicalUrl;
+    if (Platform.isAndroid) return defaultEmulatorUrl;
     return defaultLocalUrl;
   }
 
-  /// URLs antiguas de LAN que conviene migrar al default actual.
-  /// No incluye el emulador: `10.0.2.2` es válido en desarrollo.
+  static bool isRemoteTunnelUrl(String url) {
+    final normalized = normalizeBaseUrl(url);
+    return normalized.contains('ngrok') ||
+        normalized.contains('trycloudflare.com') ||
+        normalized.contains('cloudflare');
+  }
+
+  /// URLs antiguas (túnel / LAN) que deben volver al Docker local.
   static bool isLegacyDevUrl(String url) {
     final normalized = normalizeBaseUrl(url);
-    return normalized == defaultLocalUrl ||
+    return isRemoteTunnelUrl(normalized) ||
         normalized == 'http://127.0.0.1:8000' ||
         normalized == 'http://192.168.0.116:8000' ||
-        normalized == 'https://ninth-occultist-capture.ngrok-free.dev' ||
         (normalized.startsWith('http://192.168.') &&
             normalized != defaultEmulatorUrl);
   }
