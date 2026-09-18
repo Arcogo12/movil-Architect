@@ -253,7 +253,7 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                                           constraints: BoxConstraints(
                                             minHeight: constraints.maxHeight,
                                           ),
-                                          child: const Center(
+                                            child: const Center(
                                             child: _HistoryEmptyMessage(
                                               message:
                                                   'No hay chats recientes.\nUsa Chat abajo.',
@@ -511,17 +511,17 @@ class _NewChatButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add, color: fgColor, size: 18),
-              const SizedBox(width: 5),
+              Icon(Icons.add, color: fgColor, size: 22),
+              const SizedBox(width: 6),
               Text(
                 'Chat',
                 style: TextStyle(
                   color: fgColor,
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -766,9 +766,9 @@ class _DrawerUserFooter extends StatelessWidget {
         color: cardColor,
         elevation: isDark ? 0 : 1,
         shadowColor: Colors.black.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Row(
             children: [
               _NewChatButton(onTap: onNewChat),
@@ -781,15 +781,15 @@ class _DrawerUserFooter extends StatelessWidget {
                   onTap: onSettings,
                   customBorder: const CircleBorder(),
                   child: SizedBox(
-                    width: 44,
-                    height: 44,
+                    width: 52,
+                    height: 52,
                     child: Center(
                       child: Text(
                         initial,
                         style: const TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.w800,
-                          fontSize: 17,
+                          fontSize: 20,
                         ),
                       ),
                     ),
