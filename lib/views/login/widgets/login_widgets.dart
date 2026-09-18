@@ -9,21 +9,22 @@ class LoginAppMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Column(
       children: [
-        SvgPicture.asset(
-          'lib/img/logo.svg',
+        Image.asset(
+          'assets/icons/app_icon.png',
           width: _logoSize,
           height: _logoSize,
           fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          cacheWidth: 240,
+          cacheHeight: 240,
         ),
         const SizedBox(height: 16),
-        Text(
+        const Text(
           'ARCHITECT',
           style: TextStyle(
-            color: colorScheme.onSurface,
+            color: AppColors.ink,
             fontSize: 13,
             fontWeight: FontWeight.w800,
             letterSpacing: 4,

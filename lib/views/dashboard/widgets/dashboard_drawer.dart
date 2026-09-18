@@ -31,8 +31,10 @@ class DashboardDrawer extends StatefulWidget {
 
 class _DashboardDrawerState extends State<DashboardDrawer> {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   String? _selectedChatId;
   bool _chatsExpanded = true;
+  bool _searchVisible = false;
 
   @override
   void initState() {
@@ -45,7 +47,23 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchVisible = !_searchVisible;
+      if (!_searchVisible) {
+        _searchController.clear();
+        _searchFocusNode.unfocus();
+      }
+    });
+    if (_searchVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocusNode.requestFocus();
+      });
+    }
   }
 
   List<ChatSummary> get _filteredChats {
@@ -132,20 +150,53 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                  child: Text(
-                    'ARCHITECT',
-                    style: TextStyle(
-                      color: colorScheme.onSurface,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 3,
-                    ),
+                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            'ARCHITECT',
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 3,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _toggleSearch,
+                        tooltip: _searchVisible
+                            ? 'Cerrar búsqueda'
+                            : 'Buscar chats',
+                        icon: Icon(
+                          _searchVisible ? Icons.close_rounded : Icons.search,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: _SearchField(controller: _searchController),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _searchVisible
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: _SearchField(
+                            controller: _searchController,
+                            focusNode: _searchFocusNode,
+                            onClear: () {
+                              _searchController.clear();
+                              _searchFocusNode.requestFocus();
+                            },
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
@@ -388,9 +439,15 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller});
+  const _SearchField({
+    required this.controller,
+    this.focusNode,
+    this.onClear,
+  });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -398,9 +455,12 @@ class _SearchField extends StatelessWidget {
     final fillColor = colorScheme.brightness == Brightness.dark
         ? colorScheme.surfaceContainerHighest
         : const Color(0xFFE4E4E6);
+    final hasText = controller.text.isNotEmpty;
 
     return TextField(
       controller: controller,
+      focusNode: focusNode,
+      autofocus: true,
       style: TextStyle(color: colorScheme.onSurface, fontSize: 15),
       decoration: InputDecoration(
         hintText: 'Buscar chats',
@@ -410,6 +470,16 @@ class _SearchField extends StatelessWidget {
           color: colorScheme.onSurfaceVariant,
           size: 22,
         ),
+        suffixIcon: hasText
+            ? IconButton(
+                onPressed: onClear,
+                icon: Icon(
+                  Icons.clear_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+              )
+            : null,
         filled: true,
         fillColor: fillColor,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),

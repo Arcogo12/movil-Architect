@@ -5,10 +5,17 @@ import 'package:movil_architect/core/theme/app_theme.dart';
 import 'package:movil_architect/views/login/login_view.dart';
 import 'package:movil_architect/views/splash/splash_view.dart';
 
-class ArchitectApp extends StatelessWidget {
+class ArchitectApp extends StatefulWidget {
   const ArchitectApp({super.key});
 
-  static void _configureSessionHandling() {
+  @override
+  State<ArchitectApp> createState() => _ArchitectAppState();
+}
+
+class _ArchitectAppState extends State<ArchitectApp> {
+  @override
+  void initState() {
+    super.initState();
     AppServices.instance.authService.onSessionExpired = () {
       appNavigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const LoginView()),
@@ -19,7 +26,6 @@ class ArchitectApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    _configureSessionHandling();
     final themeService = AppServices.instance.themeService;
 
     return ListenableBuilder(

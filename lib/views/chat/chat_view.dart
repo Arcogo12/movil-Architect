@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/chat_controller.dart';
 import 'package:movil_architect/core/theme/app_colors.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/views/chat/widgets/chat_messages_list.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
+import 'package:movil_architect/views/shared/attachment_picker_sheet.dart';
 
 class ChatView extends StatefulWidget {
   const ChatView({super.key, required this.chatId});
@@ -50,7 +52,18 @@ class _ChatViewState extends State<ChatView> {
 
   Future<void> _send() async {
     _scrollToBottom();
-    await _controller.sendMessage();
+    final ok = await _controller.sendMessage();
+    if (!mounted) return;
+    if (_controller.errorMessage != null) {
+      AppNotifications.error(context, _controller.errorMessage!);
+    }
+    if (ok) _scrollToBottom();
+  }
+
+  Future<void> _attachPlano() async {
+    final picked = await showAttachmentPickerSheet(context);
+    if (picked == null || !mounted) return;
+    _controller.setPendingPlano(picked.file, picked.name);
     _scrollToBottom();
   }
 
@@ -94,6 +107,10 @@ class _ChatViewState extends State<ChatView> {
                   controller: _controller,
                   scrollController: _scrollController,
                   onRefresh: _refreshChat,
+                  isAnalyzingPlano: _controller.isAnalyzingPlano,
+                  pendingPlanoFile: _controller.pendingPlanoFile,
+                  pendingPlanoName: _controller.pendingPlanoName,
+                  onDismissPendingPlano: _controller.clearPendingPlano,
                 ),
               ),
               if (_controller.errorMessage != null)
@@ -110,10 +127,19 @@ class _ChatViewState extends State<ChatView> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   child: Row(
                     children: [
+                      IconButton(
+                        onPressed:
+                            _controller.isSending ? null : _attachPlano,
+                        tooltip: 'Adjuntar plano',
+                        icon: const Icon(Icons.attach_file_rounded),
+                        color: AppColors.ink,
+                      ),
                       Expanded(
                         child: LoginPillField(
                           controller: _controller.messageController,
-                          hint: 'ESCRIBE TU MENSAJE',
+                          hint: _controller.hasPendingPlano
+                              ? 'MENSAJE OPCIONAL'
+                              : 'ESCRIBE TU MENSAJE',
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _send(),
                         ),
@@ -138,7 +164,10 @@ class _ChatViewState extends State<ChatView> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded, color: Colors.white),
+                              : const Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                ),
                         ),
                       ),
                     ],

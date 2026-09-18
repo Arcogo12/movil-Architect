@@ -69,9 +69,12 @@ class MobileApiService {
     }
   }
 
-  Future<List<ChatSummary>> listChats() async {
+  Future<List<ChatSummary>> listChats({int limit = 40}) async {
     try {
-      final response = await _apiClient.dio.get<dynamic>('/api/chats');
+      final response = await _apiClient.dio.get<dynamic>(
+        '/api/chats',
+        queryParameters: {'limit': limit},
+      );
       final data = response.data;
       if (data is List) {
         return data
@@ -96,20 +99,22 @@ class MobileApiService {
     }
   }
 
-  Future<void> sendFollowup({
+  Future<AnalysisResult> sendFollowup({
     required String message,
     required int analysisId,
     String? chatId,
   }) async {
     try {
-      await _apiClient.dio.post<void>(
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
         '/api/analyze/followup',
         data: FormData.fromMap({
           'message': message.trim(),
           'analysis_id': analysisId.toString(),
+          'auto_calibrate': '1',
           if (chatId != null && chatId.isNotEmpty) 'chat_id': chatId,
         }),
       );
+      return AnalysisResult.fromJson(response.data ?? {});
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
@@ -186,12 +191,29 @@ class MobileApiService {
       });
 
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
-        '/api/analyze',
+        '/api/mobile/analyze',
         data: formData,
       );
 
       return AnalysisResult.fromJson(response.data ?? {});
     } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Imagen anotada de un análisis (historial). 404 → null (sin preview).
+  Future<String?> getAnnotatedImage(int analysisId) async {
+    try {
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        '/api/analyses/$analysisId/annotated',
+        queryParameters: {'format': 'base64'},
+      );
+      final data = response.data ?? {};
+      final image = data['image_base64'];
+      if (image is String && image.trim().isNotEmpty) return image.trim();
+      return null;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return null;
       throw ApiException.fromDio(error);
     }
   }

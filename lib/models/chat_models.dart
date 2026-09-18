@@ -47,6 +47,7 @@ class MessageContent {
     this.verdict,
     this.imageBase64,
     this.stats,
+    this.hasImage = false,
   });
 
   final String? text;
@@ -55,25 +56,57 @@ class MessageContent {
   final VerdictModel? verdict;
   final String? imageBase64;
   final AnalysisCounts? stats;
+  final bool hasImage;
+
+  /// True cuando el historial no trae `image_base64` pero hay `analysis_id`.
+  bool get needsAnnotatedImage {
+    if (imageBase64 != null && imageBase64!.trim().isNotEmpty) return false;
+    return analysisId != null;
+  }
 
   factory MessageContent.fromJson(dynamic json) {
     if (json == null) return const MessageContent();
     if (json is String) return MessageContent(text: json);
 
     final map = json as Map<String, dynamic>;
+    final analysisId = (map['analysis_id'] as num?)?.toInt();
+    final imageBase64 = _readImageBase64(map);
+    final hasImageFlag = map['has_image'] == true || map['hasImage'] == true;
     return MessageContent(
       text: map['text'] as String?,
       filename: map['filename'] as String? ??
           map['original_filename'] as String? ??
           map['file_name'] as String?,
-      analysisId: (map['analysis_id'] as num?)?.toInt(),
+      analysisId: analysisId,
       verdict: map['verdict'] is Map<String, dynamic>
           ? VerdictModel.fromJson(map['verdict'] as Map<String, dynamic>)
           : null,
-      imageBase64: _readImageBase64(map),
+      imageBase64: imageBase64,
       stats: map['stats'] is Map<String, dynamic>
           ? AnalysisCounts.fromJson(map['stats'] as Map<String, dynamic>)
           : null,
+      hasImage: hasImageFlag ||
+          (imageBase64 != null && imageBase64.trim().isNotEmpty),
+    );
+  }
+
+  MessageContent copyWith({
+    String? text,
+    String? filename,
+    int? analysisId,
+    VerdictModel? verdict,
+    String? imageBase64,
+    AnalysisCounts? stats,
+    bool? hasImage,
+  }) {
+    return MessageContent(
+      text: text ?? this.text,
+      filename: filename ?? this.filename,
+      analysisId: analysisId ?? this.analysisId,
+      verdict: verdict ?? this.verdict,
+      imageBase64: imageBase64 ?? this.imageBase64,
+      stats: stats ?? this.stats,
+      hasImage: hasImage ?? this.hasImage,
     );
   }
 
@@ -118,6 +151,20 @@ class ChatMessage {
           : null,
     );
   }
+
+  ChatMessage copyWith({
+    int? id,
+    String? role,
+    MessageContent? content,
+    DateTime? createdAt,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      role: role ?? this.role,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class ChatDetail {
@@ -146,6 +193,32 @@ class ChatDetail {
       if (id != null) return id;
     }
     return null;
+  }
+
+  ChatDetail withAnnotatedImage({
+    required int analysisId,
+    required String imageBase64,
+  }) {
+    final value = imageBase64.trim();
+    if (value.isEmpty) return this;
+    return ChatDetail(
+      chat: chat,
+      messages: [
+        for (final message in messages)
+          if (message.isAssistant &&
+              message.content.analysisId == analysisId &&
+              (message.content.imageBase64 == null ||
+                  message.content.imageBase64!.trim().isEmpty))
+            message.copyWith(
+              content: message.content.copyWith(
+                imageBase64: value,
+                hasImage: true,
+              ),
+            )
+          else
+            message,
+      ],
+    );
   }
 }
 

@@ -6,6 +6,7 @@ import 'package:movil_architect/core/theme/app_colors.dart';
 import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/models/auth_models.dart';
 import 'package:movil_architect/views/billing/billing_view.dart';
+import 'package:movil_architect/views/billing/usage_limits_view.dart';
 import 'package:movil_architect/views/login/login_view.dart';
 import 'package:movil_architect/views/login/widgets/login_widgets.dart';
 import 'package:movil_architect/views/profile/profile_view.dart';
@@ -227,6 +228,19 @@ class _SettingsViewState extends State<SettingsView> {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => const BillingView(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                _SettingsTile(
+                  icon: Icons.speed_outlined,
+                  title: 'Uso y límites',
+                  subtitle: 'Porcentaje de análisis y historial mensual',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const UsageLimitsView(),
                       ),
                     );
                   },

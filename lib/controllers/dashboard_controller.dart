@@ -128,6 +128,7 @@ class DashboardController extends ChangeNotifier {
       if (generation != _planoLoadGeneration) return;
       _pendingPlanoFile = file;
       _pendingPlanoLoadProgress = 1;
+      await ChatAttachmentCache.instance.putFile(name, file);
       try {
         _pendingPreview = await _mobileApiService.previewPlano(file);
       } catch (_) {
@@ -203,6 +204,17 @@ class DashboardController extends ChangeNotifier {
       final chatId = result.chatId ?? _activeChatId;
       if (chatId != null && chatId.isNotEmpty) {
         _activeChatId = chatId;
+      }
+
+      final analysisId = result.analysisId;
+      final annotated = result.imageBase64?.trim();
+      if (analysisId != null &&
+          annotated != null &&
+          annotated.isNotEmpty) {
+        await ChatAttachmentCache.instance.putAnnotated(
+          analysisId,
+          annotated,
+        );
       }
 
       _pendingAskMessage = null;
@@ -407,7 +419,13 @@ class DashboardController extends ChangeNotifier {
   /// Envía una pregunta general (sin plano). Mantiene el chat activo en el dashboard.
   Future<String?> sendAsk() async {
     final text = askController.text.trim();
-    if (text.isEmpty || _isSendingAsk) return null;
+    if (text.length < 3 || _isSendingAsk) {
+      if (text.isNotEmpty && text.length < 3) {
+        _askErrorMessage = 'El mensaje debe tener al menos 3 caracteres.';
+        notifyListeners();
+      }
+      return null;
+    }
 
     _pendingAskMessage = text;
     askController.clear();

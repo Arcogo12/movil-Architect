@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
-import 'package:movil_architect/core/theme/app_colors.dart';
 import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/core/utils/external_url.dart';
 import 'package:movil_architect/models/auth_models.dart';
@@ -25,9 +24,10 @@ class _BillingViewState extends State<BillingView> {
   SubscriptionModel? _subscription;
   List<BillingReceipt> _receipts = [];
   List<BillingRefund> _refunds = [];
-  List<UsageHistoryPoint> _history = [];
   bool _canRefund = false;
   String? _selectingSlug;
+  String? _selectedReceiptId;
+  bool _openingReceipt = false;
   final _refundReason = TextEditingController();
 
   @override
@@ -56,19 +56,28 @@ class _BillingViewState extends State<BillingView> {
         billing.getSubscription(),
         billing.listReceipts(),
         billing.listRefunds(),
-        billing.usageHistory(),
         billing.refundEligibility(),
         api.me(),
       ]);
       _plans = results[0] as List<BillingPlan>;
       _subscription = results[1] as SubscriptionModel?;
-      _receipts = results[2] as List<BillingReceipt>;
+      _receipts = List<BillingReceipt>.from(results[2] as List<BillingReceipt>)
+        ..sort((a, b) {
+          final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bDate.compareTo(aDate);
+        });
       _refunds = results[3] as List<BillingRefund>;
-      _history = results[4] as List<UsageHistoryPoint>;
-      _canRefund = results[5] as bool;
-      final me = results[6] as MeResponse;
+      _canRefund = results[4] as bool;
+      final me = results[5] as MeResponse;
       auth.updateSession(user: me.user, subscription: me.subscription);
       _subscription ??= me.subscription;
+      if (_receipts.isEmpty) {
+        _selectedReceiptId = null;
+      } else if (_selectedReceiptId == null ||
+          _receipts.every((r) => r.id != _selectedReceiptId)) {
+        _selectedReceiptId = _receipts.first.id;
+      }
     } on ApiException catch (error) {
       _error = error.message;
     } finally {
@@ -135,6 +144,43 @@ class _BillingViewState extends State<BillingView> {
     }
   }
 
+  Future<void> _openSelectedReceipt() async {
+    final receipt = _selectedReceipt;
+    if (receipt == null || _openingReceipt) return;
+    setState(() => _openingReceipt = true);
+    try {
+      final bytes = await AppServices.instance.billingService
+          .downloadReceiptPdf(receipt.id);
+      final file = await AppServices.instance.billingService
+          .writeTempFile(bytes, 'recibo-${receipt.id}.pdf');
+      await OpenFilex.open(file.path);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      AppNotifications.error(context, error.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppNotifications.error(context, 'No se pudo abrir el comprobante');
+    } finally {
+      if (mounted) setState(() => _openingReceipt = false);
+    }
+  }
+
+  BillingReceipt? get _selectedReceipt {
+    if (_receipts.isEmpty || _selectedReceiptId == null) return null;
+    for (final receipt in _receipts) {
+      if (receipt.id == _selectedReceiptId) return receipt;
+    }
+    return _receipts.first;
+  }
+
+  String _receiptLabel(BillingReceipt receipt) {
+    final date = receipt.createdAt == null
+        ? ''
+        : DateFormat('dd/MM/yyyy').format(receipt.createdAt!);
+    if (date.isEmpty) return receipt.title;
+    return '${receipt.title} · $date';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,11 +205,6 @@ class _BillingViewState extends State<BillingView> {
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                       ),
-                    ),
-                    Text(
-                      'Uso: ${_subscription!.usage.analysesUsed}'
-                      '${_subscription!.plan.analysesLimitMonthly == null ? '' : ' / ${_subscription!.plan.analysesLimitMonthly}'}',
-                      style: const TextStyle(color: AppColors.muted),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -196,77 +237,53 @@ class _BillingViewState extends State<BillingView> {
                     selectingSlug: _selectingSlug,
                     onSelect: _selectPlan,
                   ),
-                  if (_history.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Uso mensual',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                    ),
-                    ..._history.map(
-                      (point) => ListTile(
-                        dense: true,
-                        title: Text(point.label),
-                        trailing: Text('${point.analysesUsed} análisis'),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 24),
                   const Text(
                     'Comprobantes',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
+                  const SizedBox(height: 12),
                   if (_receipts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('Sin comprobantes'),
-                    ),
-                  ..._receipts.map((receipt) {
-                    final date = receipt.createdAt == null
-                        ? ''
-                        : DateFormat('dd/MM/yyyy').format(receipt.createdAt!);
-                    return ListTile(
-                      title: Text(receipt.title),
-                      subtitle: Text(date),
-                      trailing: Wrap(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.picture_as_pdf_outlined),
-                            onPressed: () async {
-                              final bytes = await AppServices
-                                  .instance.billingService
-                                  .downloadReceiptPdf(receipt.id);
-                              final file = await AppServices
-                                  .instance.billingService
-                                  .writeTempFile(bytes, 'recibo-${receipt.id}.pdf');
-                              await OpenFilex.open(file.path);
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.email_outlined),
-                            onPressed: () async {
-                              await AppServices.instance.billingService
-                                  .emailReceipt(receipt.id);
-                              if (!context.mounted) return;
-                              AppNotifications.success(
-                                context,
-                                'Comprobante enviado al correo',
-                              );
-                            },
-                          ),
-                        ],
+                    Text(
+                      'Sin comprobantes',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                    );
-                  }),
-                  TextButton(
-                    onPressed: () async {
-                      final bytes = await AppServices.instance.billingService
-                          .exportReceiptsZip();
-                      final file = await AppServices.instance.billingService
-                          .writeTempFile(bytes, 'comprobantes.zip');
-                      await OpenFilex.open(file.path);
-                    },
-                    child: const Text('Descargar ZIP de comprobantes'),
-                  ),
+                    )
+                  else ...[
+                    _ReceiptSelector(
+                      receipts: _receipts,
+                      selectedId: _selectedReceiptId ?? _receipts.first.id,
+                      labelBuilder: _receiptLabel,
+                      isOpening: _openingReceipt,
+                      onChanged: (id) {
+                        setState(() => _selectedReceiptId = id);
+                      },
+                      onOpen: _openSelectedReceipt,
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          try {
+                            final bytes = await AppServices
+                                .instance.billingService
+                                .exportReceiptsZip();
+                            final file = await AppServices
+                                .instance.billingService
+                                .writeTempFile(bytes, 'comprobantes.zip');
+                            await OpenFilex.open(file.path);
+                          } on ApiException catch (error) {
+                            if (!mounted) return;
+                            AppNotifications.error(context, error.message);
+                          }
+                        },
+                        icon: const Icon(Icons.folder_zip_outlined, size: 18),
+                        label: const Text('Descargar ZIP'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   const Text(
                     'Reembolsos',
@@ -308,6 +325,125 @@ class _BillingViewState extends State<BillingView> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _ReceiptSelector extends StatelessWidget {
+  const _ReceiptSelector({
+    required this.receipts,
+    required this.selectedId,
+    required this.labelBuilder,
+    required this.onChanged,
+    required this.onOpen,
+    this.isOpening = false,
+  });
+
+  final List<BillingReceipt> receipts;
+  final String selectedId;
+  final String Function(BillingReceipt receipt) labelBuilder;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onOpen;
+  final bool isOpening;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final cardBg =
+        isDark ? colorScheme.surfaceContainerHighest : Colors.white;
+    final fieldBg =
+        isDark ? colorScheme.surfaceContainerHigh : const Color(0xFFF4F4F6);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE8E8EC),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Seleccionar comprobante',
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: fieldBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedId,
+                      isExpanded: true,
+                      borderRadius: BorderRadius.circular(14),
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      items: [
+                        for (final receipt in receipts)
+                          DropdownMenuItem<String>(
+                            value: receipt.id,
+                            child: Text(
+                              labelBuilder(receipt),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) onChanged(value);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: isOpening ? null : onOpen,
+                tooltip: 'Ver / descargar',
+                style: IconButton.styleFrom(
+                  backgroundColor: colorScheme.onSurface,
+                  foregroundColor: isDark ? Colors.black : Colors.white,
+                  disabledBackgroundColor:
+                      colorScheme.onSurface.withValues(alpha: 0.35),
+                ),
+                icon: isOpening
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: isDark ? Colors.black : Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

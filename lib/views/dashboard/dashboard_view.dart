@@ -235,8 +235,12 @@ class _DashboardViewState extends State<DashboardView> {
       return;
     }
 
-    if (result?.chatId != null && result!.chatId!.isNotEmpty) {
-      await _activateChat(result.chatId!);
+    final chatId = result?.chatId ?? _controller.activeChatId;
+    if (chatId != null && chatId.isNotEmpty) {
+      await _activateChat(chatId);
+      if (result != null && _chatController != null) {
+        await _chatController!.applyAnalysisResult(result);
+      }
     }
 
     if (mounted) setState(() {});

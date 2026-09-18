@@ -72,7 +72,7 @@ class ApiException implements Exception {
       case 403:
         message = message == 'Ocurrió un error inesperado.' ||
                 message == 'Forbidden'
-            ? 'No tienes permiso para esta acción.'
+            ? 'No tienes permiso o alcanzaste el límite de tu plan.'
             : message;
       case 402:
         if (message == 'Ocurrió un error inesperado.') {
@@ -87,10 +87,12 @@ class ApiException implements Exception {
             ? 'Formato no soportado o archivo inválido.'
             : message;
       case 404:
-        message = message == 'Ocurrió un error inesperado.' ||
-                message == 'Not Found'
-            ? 'Ruta no encontrada en el servidor. Verifica la URL en Ajustes.'
-            : message;
+        if (message == 'Ocurrió un error inesperado.' ||
+            message == 'Not Found') {
+          message = path.contains('/api/chats/')
+              ? 'Conversación no encontrada.'
+              : 'Ruta no encontrada en el servidor. Verifica la URL en Ajustes.';
+        }
       case 502:
       case 503:
       case 504:
