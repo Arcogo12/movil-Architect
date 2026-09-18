@@ -6,6 +6,7 @@ import 'package:movil_architect/core/network/api_client.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
 import 'package:movil_architect/core/storage/secure_storage_service.dart';
 import 'package:movil_architect/models/auth_models.dart';
+import 'package:movil_architect/services/push_notification_service.dart';
 
 class AuthService extends ChangeNotifier {
   AuthService({
@@ -16,6 +17,7 @@ class AuthService extends ChangeNotifier {
 
   final ApiClient _apiClient;
   final SecureStorageService _secureStorage;
+  PushNotificationService? _push;
 
   UserModel? _currentUser;
   SubscriptionModel? _subscription;
@@ -24,6 +26,10 @@ class AuthService extends ChangeNotifier {
   SubscriptionModel? get subscription => _subscription;
 
   VoidCallback? onSessionExpired;
+
+  void attachPush(PushNotificationService push) {
+    _push = push;
+  }
 
   Future<AuthResponse> login({
     required String email,
@@ -36,6 +42,7 @@ class AuthService extends ChangeNotifier {
       );
       final auth = AuthResponse.fromJson(response.data ?? {});
       await _persistSession(auth);
+      await _push?.syncTokenWithBackend(force: true);
       return auth;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
@@ -63,6 +70,7 @@ class AuthService extends ChangeNotifier {
       );
       final auth = AuthResponse.fromJson(response.data ?? {});
       await _persistSession(auth);
+      await _push?.syncTokenWithBackend(force: true);
       return auth;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
@@ -75,6 +83,9 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    try {
+      await _push?.unregisterFromBackend();
+    } catch (_) {}
     await _secureStorage.clearToken();
     _currentUser = null;
     _subscription = null;
@@ -103,6 +114,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> completeOAuth(String accessToken) async {
     await _secureStorage.saveToken(accessToken);
+    await _push?.syncTokenWithBackend(force: true);
   }
 
   Future<bool> isGoogleEnabled() async {

@@ -68,6 +68,8 @@ class SplashController extends ChangeNotifier {
           user: me.user,
           subscription: me.subscription,
         );
+        await AppServices.instance.pushNotificationService
+            .syncTokenWithBackend(force: true);
         _status = SplashStatus.readyDashboard;
       } on ApiException catch (error) {
         await _authService.logout();

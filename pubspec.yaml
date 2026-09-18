@@ -47,6 +47,8 @@ dependencies:
   cookie_jar: ^4.0.9
   dio_cookie_manager: ^3.5.0
   speech_to_text: ^7.4.0
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.1.0
 
 dev_dependencies:
   flutter_test:

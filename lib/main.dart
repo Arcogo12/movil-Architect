@@ -1,6 +1,8 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:movil_architect/app/architect_app.dart';
 import 'package:movil_architect/core/app_services.dart';
+import 'package:movil_architect/firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +29,9 @@ class _BootstrapAppState extends State<_BootstrapApp> {
 
   Future<void> _init() async {
     try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
       await AppServices.instance.init();
       if (!mounted) return;
       setState(() {
@@ -34,7 +39,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
         _initError = null;
       });
     } catch (error, stack) {
-      debugPrint('AppServices.init failed: $error\n$stack');
+      debugPrint('App init failed: $error\n$stack');
       if (!mounted) return;
       setState(() => _initError = error);
     }

@@ -11,6 +11,7 @@ class SecureStorageService {
   static const _serverUrlKey = 'server_base_url';
   static const _darkModeKey = 'dark_mode_enabled';
   static const _pinnedChatsKey = 'pinned_chat_ids';
+  static const _fcmTokenKey = 'fcm_device_token';
 
   final FlutterSecureStorage _storage;
 
@@ -20,6 +21,13 @@ class SecureStorageService {
   Future<String?> getToken() => _storage.read(key: _tokenKey);
 
   Future<void> clearToken() => _storage.delete(key: _tokenKey);
+
+  Future<void> saveFcmToken(String token) =>
+      _storage.write(key: _fcmTokenKey, value: token);
+
+  Future<String?> getFcmToken() => _storage.read(key: _fcmTokenKey);
+
+  Future<void> clearFcmToken() => _storage.delete(key: _fcmTokenKey);
 
   Future<void> saveServerUrl(String url) =>
       _storage.write(key: _serverUrlKey, value: url);

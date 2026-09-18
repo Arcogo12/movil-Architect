@@ -10,6 +10,7 @@ import 'package:movil_architect/services/billing_service.dart';
 import 'package:movil_architect/services/guest_service.dart';
 import 'package:movil_architect/services/home_project_service.dart';
 import 'package:movil_architect/services/mobile_api_service.dart';
+import 'package:movil_architect/services/push_notification_service.dart';
 import 'package:movil_architect/services/support_service.dart';
 
 class AppServices {
@@ -27,6 +28,7 @@ class AppServices {
   late final SupportService supportService;
   late final GuestService guestService;
   late final ThemeService themeService;
+  late final PushNotificationService pushNotificationService;
 
   bool _initialized = false;
 
@@ -57,11 +59,17 @@ class AppServices {
     billingService = BillingService(apiClient: apiClient);
     supportService = SupportService(apiClient: apiClient);
     guestService = GuestService(apiClient: apiClient);
+    pushNotificationService = PushNotificationService(
+      apiClient: apiClient,
+      secureStorage: secureStorage,
+    );
+    authService.attachPush(pushNotificationService);
 
     apiClient.onUnauthorized = authService.handleUnauthorized;
 
     await apiClient.refreshBaseUrl();
     await themeService.init(settingsStorage);
+    await pushNotificationService.start();
     _initialized = true;
   }
 }
