@@ -141,6 +141,33 @@ class MobileApiService {
     }
   }
 
+  Future<ChatSummary> renameChat({
+    required String chatId,
+    required String title,
+  }) async {
+    try {
+      final response = await _apiClient.dio.patch<dynamic>(
+        '/api/chats/$chatId',
+        data: {'title': title.trim()},
+      );
+      final map = asJsonMap(response.data);
+      if (map['chat'] is Map) {
+        return ChatSummary.fromJson(asJsonMap(map['chat']));
+      }
+      if (map.isNotEmpty && (map.containsKey('id') || map.containsKey('title'))) {
+        return ChatSummary.fromJson(map);
+      }
+      return ChatSummary(
+        id: chatId,
+        title: title.trim(),
+        updatedAt: DateTime.now(),
+        messageCount: 0,
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<AnalysisResult> analyze({
     required File file,
     String? message,

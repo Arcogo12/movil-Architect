@@ -33,14 +33,12 @@ abstract final class AppConfig {
         normalized.contains('cloudflare');
   }
 
-  /// URLs antiguas (túnel / LAN) que deben volver al Docker local.
+  /// URLs antiguas de LAN/dev que deben volver al default local.
+  /// Los túneles (ngrok / Cloudflare) se conservan si el usuario los configuró.
   static bool isLegacyDevUrl(String url) {
     final normalized = normalizeBaseUrl(url);
-    return isRemoteTunnelUrl(normalized) ||
-        normalized == 'http://127.0.0.1:8000' ||
-        normalized == 'http://192.168.0.116:8000' ||
-        (normalized.startsWith('http://192.168.') &&
-            normalized != defaultEmulatorUrl);
+    return normalized == 'http://127.0.0.1:8000' ||
+        normalized == 'http://192.168.0.116:8000';
   }
 
   static String normalizeBaseUrl(String raw) {

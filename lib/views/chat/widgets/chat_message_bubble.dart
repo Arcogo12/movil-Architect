@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/core/theme/app_colors.dart';
+import 'package:movil_architect/core/utils/chat_attachment_cache.dart';
 import 'package:movil_architect/core/utils/image_utils.dart';
 import 'package:movil_architect/models/chat_models.dart';
+import 'package:movil_architect/views/dashboard/widgets/dashboard_shell.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
 import 'package:movil_architect/views/shared/markdown_text.dart';
 
@@ -19,7 +21,9 @@ class ChatMessageBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.82,
         ),
-        child: message.isUser ? _UserBubble(message: message) : _AssistantBubble(message: message),
+        child: message.isUser
+            ? _UserBubble(message: message)
+            : _AssistantBubble(message: message),
       ),
     );
   }
@@ -30,9 +34,26 @@ class _UserBubble extends StatelessWidget {
 
   final ChatMessage message;
 
+  String? get _imageBase64 {
+    final content = message.content;
+    final fromContent = content.imageBase64;
+    if (fromContent != null && fromContent.isNotEmpty) return fromContent;
+    return ChatAttachmentCache.instance.get(content.filename);
+  }
+
   @override
   Widget build(BuildContext context) {
     final content = message.content;
+    final filename = content.filename;
+    final cachedOrRemoteImage = _imageBase64;
+    final canShowImage = cachedOrRemoteImage != null &&
+        cachedOrRemoteImage.isNotEmpty &&
+        (filename == null ||
+            filename.isEmpty ||
+            isPlanoImageFile(filename));
+    final text = content.text?.trim();
+    final hasText = text != null && text.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -42,14 +63,46 @@ class _UserBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (content.filename != null && content.filename!.isNotEmpty) ...[
+          if (canShowImage && cachedOrRemoteImage != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Image.memory(
+                  decodeBase64Image(cachedOrRemoteImage),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const ColoredBox(
+                    color: Color(0x33FFFFFF),
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (filename != null && filename.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                filename,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (hasText) const SizedBox(height: 10),
+          ] else if (filename != null && filename.isNotEmpty) ...[
             Row(
               children: [
                 const Icon(Icons.attach_file, color: Colors.white70, size: 18),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    content.filename!,
+                    filename,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -58,11 +111,11 @@ class _UserBubble extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            if (hasText) const SizedBox(height: 8),
           ],
-          if (content.text != null && content.text!.isNotEmpty)
+          if (hasText)
             Text(
-              content.text!,
+              text,
               style: const TextStyle(color: Colors.white, height: 1.4),
             ),
         ],

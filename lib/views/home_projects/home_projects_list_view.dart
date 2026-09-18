@@ -5,6 +5,7 @@ import 'package:movil_architect/views/home_projects/home_project_detail_view.dar
 import 'package:movil_architect/views/home_projects/home_project_team_view.dart';
 import 'package:movil_architect/views/home_projects/widgets/home_project_widgets.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
+import 'package:movil_architect/views/shared/skeleton.dart';
 
 class HomeProjectsListView extends StatefulWidget {
   const HomeProjectsListView({super.key});
@@ -84,7 +85,7 @@ class _HomeProjectsListViewState extends State<HomeProjectsListView> {
         listenable: _controller,
         builder: (context, _) {
           if (_controller.state == HomeProjectsState.loading) {
-            return const AppLoadingView(message: 'Cargando proyectos...');
+            return const HomeProjectsListSkeleton();
           }
           if (_controller.state == HomeProjectsState.error) {
             return AppErrorView(

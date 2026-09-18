@@ -21,7 +21,8 @@ class ApiException implements Exception {
         error.type == DioExceptionType.sendTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
       return ApiException(
-        message: 'Sin conexión al servidor. Revisa tu red o la URL configurada.',
+        message:
+            'Sin conexión al servidor. Revisa tu red o la URL configurada.',
         isOffline: true,
       );
     }
@@ -30,19 +31,22 @@ class ApiException implements Exception {
     final statusCode = response?.statusCode;
     final data = response?.data;
     final path = error.requestOptions.path;
+    final host = error.requestOptions.uri.host;
 
     String message = 'Ocurrió un error inesperado.';
     String? code;
     if (data is String) {
-      message = data.isNotEmpty ? data : message;
+      message = _sanitizeBodyMessage(data, host: host) ?? message;
     } else if (data is Map && data['detail'] != null) {
       final detail = data['detail'];
       if (detail is String) {
-        message = detail;
+        message = _sanitizeBodyMessage(detail, host: host) ?? detail;
       } else if (detail is Map) {
         code = detail['code']?.toString();
         final nested = detail['message']?.toString();
-        if (nested != null && nested.isNotEmpty) message = nested;
+        if (nested != null && nested.isNotEmpty) {
+          message = _sanitizeBodyMessage(nested, host: host) ?? nested;
+        }
       } else if (detail is List && detail.isNotEmpty) {
         final first = detail.first;
         if (first is Map && first['msg'] is String) {
@@ -52,7 +56,8 @@ class ApiException implements Exception {
         }
       }
     } else if (data is Map && data['message'] is String) {
-      message = data['message'] as String;
+      message = _sanitizeBodyMessage(data['message'] as String, host: host) ??
+          data['message'] as String;
     }
 
     switch (statusCode) {
@@ -86,18 +91,64 @@ class ApiException implements Exception {
                 message == 'Not Found'
             ? 'Ruta no encontrada en el servidor. Verifica la URL en Ajustes.'
             : message;
-      case 500:
       case 502:
       case 503:
+      case 504:
+        message = _tunnelOrServerUnavailable(host);
+      case 500:
         if (message == 'Ocurrió un error inesperado.' ||
-            message == 'Internal Server Error') {
-          message = statusCode == 503
-              ? 'El servidor no está configurado correctamente.'
-              : 'Error en el servidor al procesar la solicitud.';
+            message == 'Internal Server Error' ||
+            _looksLikeHtml(message)) {
+          message = 'Error en el servidor al procesar la solicitud.';
         }
     }
 
+    if (_looksLikeHtml(message) || _looksLikeCloudflareError(message)) {
+      message = _tunnelOrServerUnavailable(host);
+    }
+
     return ApiException(message: message, statusCode: statusCode, code: code);
+  }
+
+  static String _tunnelOrServerUnavailable(String host) {
+    final isTunnel = host.contains('trycloudflare.com') ||
+        host.contains('ngrok') ||
+        host.contains('cloudflare');
+    if (isTunnel) {
+      return 'El túnel del servidor no está disponible. '
+          'Inicia de nuevo el túnel o cambia la URL en Ajustes.';
+    }
+    return 'El servidor no responde. Verifica que esté en marcha y la URL en Ajustes.';
+  }
+
+  static bool _looksLikeHtml(String value) {
+    final lower = value.toLowerCase();
+    return lower.contains('<html') ||
+        lower.contains('<!doctype') ||
+        lower.contains('<head') ||
+        lower.contains('<body') ||
+        lower.contains('<script');
+  }
+
+  static bool _looksLikeCloudflareError(String value) {
+    final lower = value.toLowerCase();
+    return lower.contains('cloudflare tunnel error') ||
+        lower.contains('errorcode:1033') ||
+        lower.contains('cf-error') ||
+        lower.contains('trycloudflare.com');
+  }
+
+  /// Evita mostrar HTML crudo (p. ej. páginas de error de Cloudflare).
+  static String? _sanitizeBodyMessage(String raw, {required String host}) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    if (_looksLikeHtml(value) || _looksLikeCloudflareError(value)) {
+      return _tunnelOrServerUnavailable(host);
+    }
+    if (value.length > 280) {
+      return '${value.substring(0, 277).trimRight()}…';
+    }
+    return value;
   }
 
   @override

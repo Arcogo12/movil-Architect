@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
 import 'package:movil_architect/core/storage/secure_storage_service.dart';
+import 'package:movil_architect/core/utils/chat_attachment_cache.dart';
 import 'package:movil_architect/models/analysis_models.dart';
 import 'package:movil_architect/models/app_config_models.dart';
 import 'package:movil_architect/models/auth_models.dart';
@@ -187,6 +188,11 @@ class DashboardController extends ChangeNotifier {
     _pendingPlanoLoadProgress = 0;
     notifyListeners();
 
+    final cacheName = _displayPlanoName;
+    if (cacheName != null && cacheName.isNotEmpty) {
+      await ChatAttachmentCache.instance.putFile(cacheName, file);
+    }
+
     try {
       final result = await _mobileApiService.analyze(
         file: file,
@@ -297,6 +303,35 @@ class DashboardController extends ChangeNotifier {
       _activeChatId = null;
       _pendingAskMessage = null;
     }
+    notifyListeners();
+  }
+
+  Future<void> renameChat({
+    required String chatId,
+    required String title,
+  }) async {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) {
+      throw ApiException(message: 'El nombre no puede estar vacío.');
+    }
+
+    final updated = await _mobileApiService.renameChat(
+      chatId: chatId,
+      title: trimmed,
+    );
+
+    final index = _chats.indexWhere((chat) => chat.id == chatId);
+    if (index >= 0) {
+      final current = _chats[index];
+      _chats[index] = current.copyWith(
+        title: updated.title.isNotEmpty ? updated.title : trimmed,
+        updatedAt: updated.updatedAt ?? DateTime.now(),
+        messageCount: updated.messageCount > 0
+            ? updated.messageCount
+            : current.messageCount,
+      );
+    }
+    _sortChats();
     notifyListeners();
   }
 

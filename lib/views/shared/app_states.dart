@@ -71,32 +71,69 @@ class AppErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final displayMessage = _displayMessage(message);
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off, size: 56, color: colorScheme.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 16,
-                height: 1.4,
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 56,
+                maxWidth: 420,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.cloud_off,
+                      size: 56,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      displayMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 16,
+                        height: 1.4,
+                      ),
+                    ),
+                    if (onRetry != null) ...[
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: onRetry,
+                        child: Text(retryLabel),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 20),
-              FilledButton(onPressed: onRetry, child: Text(retryLabel)),
-            ],
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  static String _displayMessage(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return 'No se pudo conectar al servidor.';
+    final lower = value.toLowerCase();
+    if (lower.contains('<html') ||
+        lower.contains('<!doctype') ||
+        lower.contains('<script') ||
+        lower.contains('cloudflare tunnel error')) {
+      return 'El servidor no está disponible. '
+          'Revisa la URL en Ajustes o reinicia el túnel.';
+    }
+    if (value.length > 320) {
+      return '${value.substring(0, 317).trimRight()}…';
+    }
+    return value;
   }
 }
 

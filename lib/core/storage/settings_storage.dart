@@ -13,8 +13,7 @@ class SettingsStorage {
 
   Future<String> getServerUrl() async {
     if (_memoryUrl != null && _memoryUrl!.isNotEmpty) {
-      if (AppConfig.isLegacyDevUrl(_memoryUrl!) ||
-          AppConfig.isRemoteTunnelUrl(_memoryUrl!)) {
+      if (AppConfig.isLegacyDevUrl(_memoryUrl!)) {
         final next = AppConfig.defaultServerUrl();
         await saveServerUrl(next);
         return next;
@@ -26,8 +25,7 @@ class SettingsStorage {
       final saved = await _secureStorage.getServerUrl();
       if (saved != null && saved.isNotEmpty) {
         final normalized = AppConfig.normalizeBaseUrl(saved);
-        if (AppConfig.isLegacyDevUrl(normalized) ||
-            AppConfig.isRemoteTunnelUrl(normalized)) {
+        if (AppConfig.isLegacyDevUrl(normalized)) {
           final next = AppConfig.defaultServerUrl();
           await saveServerUrl(next);
           return next;

@@ -3,6 +3,7 @@ import 'package:movil_architect/controllers/dashboard_controller.dart';
 import 'package:movil_architect/core/utils/app_notifications.dart';
 import 'package:movil_architect/core/utils/date_utils.dart';
 import 'package:movil_architect/models/chat_models.dart';
+import 'package:movil_architect/views/shared/skeleton.dart';
 
 class DashboardDrawer extends StatefulWidget {
   const DashboardDrawer({
@@ -188,7 +189,10 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                           child: RefreshIndicator(
                             onRefresh: () =>
                                 widget.controller.load(refresh: true),
-                            child: chats.isEmpty
+                            child: widget.controller.state ==
+                                    DashboardState.loading
+                                ? const ChatHistorySkeleton()
+                                : chats.isEmpty
                                 ? LayoutBuilder(
                                     builder: (context, constraints) {
                                       return SingleChildScrollView(
@@ -268,38 +272,117 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
     );
   }
 
+  Future<void> _renameChat(ChatSummary chat) async {
+    final nameController = TextEditingController(text: chat.title);
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Renombrar chat'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Nombre',
+            hintText: 'Ej. Plano casa norte',
+          ),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, nameController.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+
+    if (newTitle == null || !mounted) return;
+    if (newTitle.isEmpty || newTitle == chat.title) return;
+
+    try {
+      await widget.controller.renameChat(chatId: chat.id, title: newTitle);
+      if (!mounted) return;
+      setState(() {});
+      AppNotifications.success(context, 'Chat renombrado');
+    } catch (_) {
+      if (!mounted) return;
+      AppNotifications.error(context, 'No se pudo renombrar el chat');
+    }
+  }
+
   void _showChatOptions(ChatSummary chat) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isPinned = widget.controller.isChatPinned(chat.id);
+
     showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-              ),
-              title: Text(isPinned ? 'Desfijar' : 'Fijar'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _togglePinChat(chat, wasPinned: isPinned);
-              },
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Text(
+                    chat.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(
+                    isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    color: colorScheme.onSurface,
+                  ),
+                  title: Text(isPinned ? 'Desfijar' : 'Fijar'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _togglePinChat(chat, wasPinned: isPinned);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.drive_file_rename_outline,
+                    color: colorScheme.onSurface,
+                  ),
+                  title: const Text('Renombrar'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _renameChat(chat);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text(
+                    'Eliminar',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _confirmDelete(chat);
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text(
-                'Eliminar',
-                style: TextStyle(color: Colors.red),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _confirmDelete(chat);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

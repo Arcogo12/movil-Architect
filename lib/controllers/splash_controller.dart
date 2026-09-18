@@ -19,14 +19,28 @@ class SplashController extends ChangeNotifier {
 
   SplashStatus _status = SplashStatus.loading;
   String? _errorMessage;
+  bool _disposed = false;
 
   SplashStatus get status => _status;
   String? get errorMessage => _errorMessage;
 
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   Future<void> bootstrap() async {
     _status = SplashStatus.loading;
     _errorMessage = null;
-    notifyListeners();
+    _notify();
+
+    final previousSessionHandler = _authService.onSessionExpired;
+    _authService.onSessionExpired = null;
 
     try {
       debugPrint(
@@ -37,14 +51,14 @@ class SplashController extends ChangeNotifier {
       if (!health.ok) {
         _status = SplashStatus.serverError;
         _errorMessage = 'El servidor respondió pero no está listo.';
-        notifyListeners();
+        _notify();
         return;
       }
 
       final hasToken = await _authService.hasToken();
       if (!hasToken) {
         _status = SplashStatus.readyLogin;
-        notifyListeners();
+        _notify();
         return;
       }
 
@@ -75,8 +89,10 @@ class SplashController extends ChangeNotifier {
       debugPrint('Splash error: $error');
       _status = SplashStatus.serverError;
       _errorMessage = 'No se pudo conectar al servidor.';
+    } finally {
+      _authService.onSessionExpired = previousSessionHandler;
     }
 
-    notifyListeners();
+    _notify();
   }
 }

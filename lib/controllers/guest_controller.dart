@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
+import 'package:movil_architect/core/utils/chat_attachment_cache.dart';
 import 'package:movil_architect/models/analysis_models.dart';
 import 'package:movil_architect/models/app_config_models.dart';
 import 'package:movil_architect/models/chat_models.dart';
@@ -244,9 +245,15 @@ class GuestController extends ChangeNotifier {
       );
       if (_disposed) return false;
 
+      final planoName = _displayPlanoName;
+      final planoFile = _displayPlanoFile;
+      if (planoName != null && planoFile != null) {
+        await ChatAttachmentCache.instance.putFile(planoName, planoFile);
+      }
       _appendUserMessage(
         text: _pendingUserMessage,
-        filename: _displayPlanoName,
+        filename: planoName,
+        imageBase64: ChatAttachmentCache.instance.get(planoName),
       );
       _appendAssistantFromAnalysis(result);
       _pendingUserMessage = null;
@@ -293,12 +300,20 @@ class GuestController extends ChangeNotifier {
     return false;
   }
 
-  void _appendUserMessage({String? text, String? filename}) {
+  void _appendUserMessage({
+    String? text,
+    String? filename,
+    String? imageBase64,
+  }) {
     _messages.add(
       ChatMessage(
         id: _nextMessageId++,
         role: 'user',
-        content: MessageContent(text: text, filename: filename),
+        content: MessageContent(
+          text: text,
+          filename: filename,
+          imageBase64: imageBase64,
+        ),
         createdAt: DateTime.now(),
       ),
     );

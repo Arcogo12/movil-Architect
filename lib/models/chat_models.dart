@@ -23,6 +23,20 @@ class ChatSummary {
       messageCount: json['message_count'] as int? ?? 0,
     );
   }
+
+  ChatSummary copyWith({
+    String? id,
+    String? title,
+    DateTime? updatedAt,
+    int? messageCount,
+  }) {
+    return ChatSummary(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      updatedAt: updatedAt ?? this.updatedAt,
+      messageCount: messageCount ?? this.messageCount,
+    );
+  }
 }
 
 class MessageContent {
@@ -49,16 +63,32 @@ class MessageContent {
     final map = json as Map<String, dynamic>;
     return MessageContent(
       text: map['text'] as String?,
-      filename: map['filename'] as String?,
+      filename: map['filename'] as String? ??
+          map['original_filename'] as String? ??
+          map['file_name'] as String?,
       analysisId: (map['analysis_id'] as num?)?.toInt(),
       verdict: map['verdict'] is Map<String, dynamic>
           ? VerdictModel.fromJson(map['verdict'] as Map<String, dynamic>)
           : null,
-      imageBase64: map['image_base64'] as String?,
+      imageBase64: _readImageBase64(map),
       stats: map['stats'] is Map<String, dynamic>
           ? AnalysisCounts.fromJson(map['stats'] as Map<String, dynamic>)
           : null,
     );
+  }
+
+  static String? _readImageBase64(Map<String, dynamic> map) {
+    for (final key in [
+      'image_base64',
+      'imageBase64',
+      'thumbnail_base64',
+      'file_base64',
+      'image',
+    ]) {
+      final value = map[key];
+      if (value is String && value.trim().isNotEmpty) return value;
+    }
+    return null;
   }
 }
 

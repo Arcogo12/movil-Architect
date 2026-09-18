@@ -7,6 +7,7 @@ import 'package:movil_architect/views/home_projects/section_detail_view.dart';
 import 'package:movil_architect/views/home_projects/stage_detail_view.dart';
 import 'package:movil_architect/views/home_projects/widgets/home_project_widgets.dart';
 import 'package:movil_architect/views/shared/app_states.dart';
+import 'package:movil_architect/views/shared/skeleton.dart';
 
 class HomeProjectDetailView extends StatefulWidget {
   const HomeProjectDetailView({super.key, required this.projectId});
@@ -177,13 +178,12 @@ class _HomeProjectDetailViewState extends State<HomeProjectDetailView> {
             ],
           ),
           body: switch (_controller.state) {
-            HomeProjectsState.loading =>
-              const AppLoadingView(message: 'Cargando proyecto...'),
+            HomeProjectsState.loading => const HomeProjectDetailSkeleton(),
             HomeProjectsState.error => AppErrorView(
                 message: _controller.errorMessage ?? 'Error',
                 onRetry: () => _controller.load(),
               ),
-            _ when project == null => const AppLoadingView(),
+            _ when project == null => const HomeProjectDetailSkeleton(),
             _ => RefreshIndicator(
                 onRefresh: () => _controller.load(refresh: true),
                 child: ListView(
