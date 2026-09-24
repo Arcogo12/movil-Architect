@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movil_architect/controllers/home_project_controller.dart';
+import 'package:movil_architect/core/utils/app_notifications.dart';
+import 'package:movil_architect/models/home_project_models.dart';
 import 'package:movil_architect/views/home_projects/create_home_project_view.dart';
 import 'package:movil_architect/views/home_projects/home_project_detail_view.dart';
 import 'package:movil_architect/views/home_projects/home_project_team_view.dart';
@@ -46,6 +48,55 @@ class _HomeProjectsListViewState extends State<HomeProjectsListView> {
     if (mounted) await _controller.load(refresh: true);
   }
 
+  Future<void> _togglePin(
+    HomeProject project, {
+    required bool wasPinned,
+  }) async {
+    await _controller.togglePin(project.id);
+    if (!mounted) return;
+    AppNotifications.success(
+      context,
+      wasPinned ? 'Proyecto desfijado' : 'Proyecto fijado',
+    );
+  }
+
+  Future<void> _confirmDelete(HomeProject project) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar proyecto'),
+        content: Text(
+          'Se eliminará "${project.name}". Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ok = await _controller.deleteProject(project.id);
+    if (!mounted) return;
+    if (ok) {
+      AppNotifications.success(context, 'Proyecto eliminado');
+    } else {
+      AppNotifications.error(
+        context,
+        _controller.errorMessage ?? 'No se pudo eliminar',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -67,7 +118,10 @@ class _HomeProjectsListViewState extends State<HomeProjectsListView> {
                 MaterialPageRoute(builder: (_) => const AcceptInviteView()),
               );
             },
-            icon: const Icon(Icons.mail_outline, color: Color.fromARGB(255, 12, 128, 37)),
+            icon: const Icon(
+              Icons.mail_outline,
+              color: Color.fromARGB(255, 12, 128, 37),
+            ),
           ),
         ],
       ),
@@ -80,7 +134,6 @@ class _HomeProjectsListViewState extends State<HomeProjectsListView> {
           style: TextStyle(color: Colors.white),
         ),
       ),
- 
       body: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) {
@@ -139,7 +192,15 @@ class _HomeProjectsListViewState extends State<HomeProjectsListView> {
                 final project = _controller.projects[index];
                 return HomeProjectCard(
                   project: project,
+                  pinned: _controller.isPinned(project.id),
                   onTap: () => _openDetail(project.id),
+                  onPin: () => _togglePin(
+                    project,
+                    wasPinned: _controller.isPinned(project.id),
+                  ),
+                  onDelete: project.permissions.canDeleteProject
+                      ? () => _confirmDelete(project)
+                      : null,
                 );
               },
             ),

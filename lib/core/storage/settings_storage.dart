@@ -18,7 +18,7 @@ class SettingsStorage {
         await saveServerUrl(next);
         return next;
       }
-      return _memoryUrl!;
+      return AppConfig.resolveForPlatform(_memoryUrl!);
     }
 
     try {
@@ -29,6 +29,11 @@ class SettingsStorage {
           final next = AppConfig.defaultServerUrl();
           await saveServerUrl(next);
           return next;
+        }
+        final resolved = AppConfig.resolveForPlatform(normalized);
+        if (resolved != normalized) {
+          await saveServerUrl(resolved);
+          return resolved;
         }
         _memoryUrl = normalized;
         return _memoryUrl!;
@@ -41,7 +46,7 @@ class SettingsStorage {
   }
 
   Future<void> saveServerUrl(String url) async {
-    final normalized = AppConfig.normalizeBaseUrl(url);
+    final normalized = AppConfig.resolveForPlatform(url);
     _memoryUrl = normalized;
 
     try {

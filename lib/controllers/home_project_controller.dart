@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:movil_architect/core/app_services.dart';
 import 'package:movil_architect/core/network/api_exception.dart';
+import 'package:movil_architect/core/storage/secure_storage_service.dart';
 import 'package:movil_architect/models/home_project_models.dart';
 import 'package:movil_architect/services/home_project_service.dart';
 import 'package:open_filex/open_filex.dart';
@@ -11,19 +12,26 @@ import 'package:path_provider/path_provider.dart';
 enum HomeProjectsState { loading, success, empty, error }
 
 class HomeProjectsController extends ChangeNotifier {
-  HomeProjectsController({HomeProjectService? service})
-      : _service = service ?? AppServices.instance.homeProjectService;
+  HomeProjectsController({
+    HomeProjectService? service,
+    SecureStorageService? secureStorage,
+  })  : _service = service ?? AppServices.instance.homeProjectService,
+        _secureStorage =
+            secureStorage ?? AppServices.instance.secureStorage;
 
   final HomeProjectService _service;
+  final SecureStorageService _secureStorage;
   bool _disposed = false;
 
   HomeProjectsState _state = HomeProjectsState.loading;
   String? _errorMessage;
   List<HomeProject> _projects = [];
+  final Set<String> _pinnedIds = {};
 
   HomeProjectsState get state => _state;
   String? get errorMessage => _errorMessage;
   List<HomeProject> get projects => _projects;
+  bool isPinned(String projectId) => _pinnedIds.contains(projectId);
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -37,9 +45,19 @@ class HomeProjectsController extends ChangeNotifier {
     }
 
     try {
-      final projects = await _service.listProjects();
+      final results = await Future.wait([
+        _service.listProjects(),
+        _secureStorage.getPinnedHomeProjectIds(),
+      ]);
       if (_disposed) return;
-      _projects = projects;
+      _projects = results[0] as List<HomeProject>;
+      _pinnedIds
+        ..clear()
+        ..addAll(results[1] as List<String>);
+      _pinnedIds.removeWhere(
+        (id) => !_projects.any((project) => project.id == id),
+      );
+      _sortProjects();
       _state =
           _projects.isEmpty ? HomeProjectsState.empty : HomeProjectsState.success;
       _errorMessage = null;
@@ -53,6 +71,88 @@ class HomeProjectsController extends ChangeNotifier {
       _errorMessage = 'No se pudieron cargar los proyectos.';
     }
     _notify();
+  }
+
+  Future<void> togglePin(String projectId) async {
+    if (_pinnedIds.contains(projectId)) {
+      _pinnedIds.remove(projectId);
+    } else {
+      _pinnedIds.add(projectId);
+    }
+    _sortProjects();
+    _notify();
+    try {
+      await _secureStorage.savePinnedHomeProjectIds(_pinnedIds.toList());
+    } catch (_) {}
+  }
+
+  Future<bool> deleteProject(String projectId) async {
+    try {
+      await _service.deleteProject(projectId);
+      if (_disposed) return false;
+      _projects = _projects.where((p) => p.id != projectId).toList();
+      _pinnedIds.remove(projectId);
+      await _secureStorage.savePinnedHomeProjectIds(_pinnedIds.toList());
+      _state =
+          _projects.isEmpty ? HomeProjectsState.empty : HomeProjectsState.success;
+      _notify();
+      return true;
+    } on ApiException catch (error) {
+      if (_disposed) return false;
+      _errorMessage = error.message;
+      _notify();
+      return false;
+    } catch (_) {
+      if (_disposed) return false;
+      _errorMessage = 'No se pudo eliminar el proyecto.';
+      _notify();
+      return false;
+    }
+  }
+
+  Future<bool> updateProject(
+    String projectId, {
+    required String name,
+    String? clientName,
+    String? location,
+    String? description,
+  }) async {
+    try {
+      final updated = await _service.updateProject(
+        projectId,
+        name: name,
+        clientName: clientName,
+        location: location,
+        description: description,
+      );
+      if (_disposed) return false;
+      final index = _projects.indexWhere((p) => p.id == projectId);
+      if (index >= 0) {
+        _projects[index] = updated;
+      }
+      _sortProjects();
+      _notify();
+      return true;
+    } on ApiException catch (error) {
+      if (_disposed) return false;
+      _errorMessage = error.message;
+      _notify();
+      return false;
+    } catch (_) {
+      if (_disposed) return false;
+      _errorMessage = 'No se pudo actualizar el proyecto.';
+      _notify();
+      return false;
+    }
+  }
+
+  void _sortProjects() {
+    _projects.sort((a, b) {
+      final aPinned = _pinnedIds.contains(a.id);
+      final bPinned = _pinnedIds.contains(b.id);
+      if (aPinned != bPinned) return aPinned ? -1 : 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
   }
 
   Future<HomeProjectCatalog?> loadCatalog() async {

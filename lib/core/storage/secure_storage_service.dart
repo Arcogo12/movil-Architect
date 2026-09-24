@@ -11,6 +11,7 @@ class SecureStorageService {
   static const _serverUrlKey = 'server_base_url';
   static const _darkModeKey = 'dark_mode_enabled';
   static const _pinnedChatsKey = 'pinned_chat_ids';
+  static const _pinnedHomeProjectsKey = 'pinned_home_project_ids';
   static const _fcmTokenKey = 'fcm_device_token';
 
   final FlutterSecureStorage _storage;
@@ -53,6 +54,17 @@ class SecureStorageService {
 
   Future<void> savePinnedChatIds(List<String> ids) => _storage.write(
         key: _pinnedChatsKey,
+        value: ids.join(','),
+      );
+
+  Future<List<String>> getPinnedHomeProjectIds() async {
+    final value = await _storage.read(key: _pinnedHomeProjectsKey);
+    if (value == null || value.isEmpty) return [];
+    return value.split(',').where((id) => id.isNotEmpty).toList();
+  }
+
+  Future<void> savePinnedHomeProjectIds(List<String> ids) => _storage.write(
+        key: _pinnedHomeProjectsKey,
         value: ids.join(','),
       );
 }

@@ -49,7 +49,8 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
   Future<bool> save() async {
-    final normalized = AppConfig.normalizeBaseUrl(urlController.text);
+    final normalized =
+        AppConfig.resolveForPlatform(urlController.text);
     if (normalized.isEmpty) {
       _errorMessage = 'Ingresa una URL válida.';
       notifyListeners();
@@ -63,6 +64,7 @@ class SettingsController extends ChangeNotifier {
 
     try {
       await _apiClient.setBaseUrl(normalized);
+      urlController.text = normalized;
       final health = await _mobileApiService.health();
       if (!health.ok) {
         _errorMessage = 'La URL respondió pero el servicio no está listo.';
@@ -89,7 +91,9 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _apiClient.applyBaseUrl(AppConfig.normalizeBaseUrl(urlController.text));
+      final resolved =
+          AppConfig.resolveForPlatform(urlController.text);
+      _apiClient.applyBaseUrl(resolved);
       final health = await _mobileApiService.health();
       _successMessage = health.ok
           ? (health.version.isNotEmpty

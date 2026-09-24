@@ -284,8 +284,8 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
                                           pinned: widget.controller
                                               .isChatPinned(item.id),
                                           onTap: () => _openChat(item),
-                                          onLongPress: () =>
-                                              _showChatOptions(item),
+                                          onLongPress: (position) =>
+                                              _showChatOptions(item, position),
                                         ),
                                     ],
                                   ),
@@ -323,118 +323,57 @@ class _DashboardDrawerState extends State<DashboardDrawer> {
     );
   }
 
-  Future<void> _renameChat(ChatSummary chat) async {
-    final nameController = TextEditingController(text: chat.title);
-    final newTitle = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Renombrar chat'),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Nombre',
-            hintText: 'Ej. Plano casa norte',
-          ),
-          onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, nameController.text.trim()),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    nameController.dispose();
-
-    if (newTitle == null || !mounted) return;
-    if (newTitle.isEmpty || newTitle == chat.title) return;
-
-    try {
-      await widget.controller.renameChat(chatId: chat.id, title: newTitle);
-      if (!mounted) return;
-      setState(() {});
-      AppNotifications.success(context, 'Chat renombrado');
-    } catch (_) {
-      if (!mounted) return;
-      AppNotifications.error(context, 'No se pudo renombrar el chat');
-    }
-  }
-
-  void _showChatOptions(ChatSummary chat) {
+  Future<void> _showChatOptions(
+    ChatSummary chat,
+    Offset globalPosition,
+  ) async {
     final colorScheme = Theme.of(context).colorScheme;
     final isPinned = widget.controller.isChatPinned(chat.id);
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
 
-    showModalBottomSheet<void>(
+    final selected = await showMenu<String>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                  child: Text(
-                    chat.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colorScheme.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  leading: Icon(
-                    isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    color: colorScheme.onSurface,
-                  ),
-                  title: Text(isPinned ? 'Desfijar' : 'Fijar'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _togglePinChat(chat, wasPinned: isPinned);
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.drive_file_rename_outline,
-                    color: colorScheme.onSurface,
-                  ),
-                  title: const Text('Renombrar'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _renameChat(chat);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text(
-                    'Eliminar',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _confirmDelete(chat);
-                  },
-                ),
-              ],
-            ),
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'pin',
+          child: Row(
+            children: [
+              Icon(
+                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                size: 20,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 12),
+              Text(isPinned ? 'Desfijar' : 'Fijar'),
+            ],
           ),
-        );
-      },
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              SizedBox(width: 12),
+              Text('Eliminar', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
     );
+
+    if (!mounted || selected == null) return;
+
+    switch (selected) {
+      case 'pin':
+        await _togglePinChat(chat, wasPinned: isPinned);
+      case 'delete':
+        await _confirmDelete(chat);
+    }
   }
 }
 
@@ -675,7 +614,7 @@ class _ChatHistoryTile extends StatelessWidget {
   final bool selected;
   final bool pinned;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
+  final ValueChanged<Offset>? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -691,7 +630,16 @@ class _ChatHistoryTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          onLongPress: onLongPress,
+          onLongPress: onLongPress == null
+              ? null
+              : () {
+                  final box = context.findRenderObject() as RenderBox?;
+                  if (box == null || !box.hasSize) return;
+                  final origin = box.localToGlobal(Offset.zero);
+                  onLongPress!(
+                    origin + Offset(box.size.width - 24, box.size.height / 2),
+                  );
+                },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

@@ -113,6 +113,7 @@ class _UsageLimitsViewState extends State<UsageLimitsView> {
                         0,
                         _history.length - 1,
                       ),
+                      monthlyLimit: _subscription?.plan.analysesLimitMonthly,
                       onChanged: (index) {
                         setState(() => _selectedUsageIndex = index);
                       },
@@ -147,10 +148,6 @@ class _CurrentUsageCard extends StatelessWidget {
         ? (usage.analysesUsed / limit).clamp(0.0, 1.0)
         : null;
     final percent = progress == null ? null : (progress * 100).round();
-    final remaining = !hasNumericLimit
-        ? null
-        : (usage.analysesRemaining ??
-            (limit - usage.analysesUsed).clamp(0, limit));
     final barColor = usage.limitReached || (percent != null && percent >= 90)
         ? const Color(0xFFD64545)
         : (percent != null && percent >= 70)
@@ -212,15 +209,6 @@ class _CurrentUsageCard extends StatelessWidget {
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${usage.analysesUsed} de $limit análisis',
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
                         ),
                       ),
                     ],
@@ -288,21 +276,6 @@ class _CurrentUsageCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              remaining == null
-                  ? ''
-                  : remaining == 0
-                      ? 'Límite alcanzado este mes'
-                      : 'Te quedan $remaining análisis',
-              style: TextStyle(
-                color: usage.limitReached
-                    ? const Color(0xFFD64545)
-                    : colorScheme.onSurfaceVariant,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ],
           if (plan.maxFileMb > 0) ...[
             const SizedBox(height: 14),
@@ -325,11 +298,13 @@ class _MonthlyUsageSelector extends StatelessWidget {
     required this.history,
     required this.selectedIndex,
     required this.onChanged,
+    this.monthlyLimit,
   });
 
   final List<UsageHistoryPoint> history;
   final int selectedIndex;
   final ValueChanged<int> onChanged;
+  final int? monthlyLimit;
 
   @override
   Widget build(BuildContext context) {
@@ -340,6 +315,12 @@ class _MonthlyUsageSelector extends StatelessWidget {
     final fieldBg =
         isDark ? colorScheme.surfaceContainerHigh : const Color(0xFFF4F4F6);
     final point = history[selectedIndex];
+    final hasLimit = monthlyLimit != null && monthlyLimit! > 0;
+    final percent = hasLimit
+        ? ((point.analysesUsed / monthlyLimit!) * 100).clamp(0, 100).round()
+        : null;
+    final usageLabel =
+        percent != null ? '$percent%' : '${point.analysesUsed} análisis';
 
     return Container(
       width: double.infinity,
@@ -404,7 +385,7 @@ class _MonthlyUsageSelector extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Análisis realizados',
+                  'Uso del mes',
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 14,
@@ -422,7 +403,7 @@ class _MonthlyUsageSelector extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '${point.analysesUsed} análisis',
+                  usageLabel,
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,

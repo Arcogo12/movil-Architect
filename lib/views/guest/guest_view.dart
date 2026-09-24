@@ -199,7 +199,7 @@ class _GuestViewState extends State<GuestView> {
             hintText: _controller.hasPendingPlano
                 ? 'Indica qué revisar en tu plano'
                 : _controller.canAsk
-                    ? 'Pregunta algo sobre tu plano'
+                    ? 'Dime tu pregunta'
                     : 'Adjunta un plano para analizarlo',
           ),
           TextButton(

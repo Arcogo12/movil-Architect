@@ -38,7 +38,24 @@ abstract final class AppConfig {
   static bool isLegacyDevUrl(String url) {
     final normalized = normalizeBaseUrl(url);
     return normalized == 'http://127.0.0.1:8000' ||
+        normalized == 'http://localhost:8000' ||
         normalized == 'http://192.168.0.116:8000';
+  }
+
+  /// En el emulador Android, `localhost` / `127.0.0.1` apuntan al emulador,
+  /// no al PC. Docker en el host se alcanza con `10.0.2.2`.
+  static String resolveForPlatform(String url) {
+    final normalized = normalizeBaseUrl(url);
+    if (kIsWeb) return normalized;
+    if (!Platform.isAndroid) return normalized;
+
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return normalized;
+    if (uri.host != 'localhost' && uri.host != '127.0.0.1') {
+      return normalized;
+    }
+
+    return uri.replace(host: '10.0.2.2').toString();
   }
 
   static String normalizeBaseUrl(String raw) {

@@ -479,6 +479,8 @@ class _EnterpriseCard extends StatelessWidget {
     final progress = subscription.isUnlimited || limit == null || limit == 0
         ? null
         : (usage.analysesUsed / limit).clamp(0.0, 1.0);
+    final percent =
+        progress == null ? null : (progress * 100).round();
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -538,7 +540,9 @@ class _EnterpriseCard extends StatelessWidget {
           Text(
             subscription.isUnlimited
                 ? 'Análisis ilimitados este mes'
-                : 'Análisis: ${usage.analysesUsed} / $limit',
+                : percent != null
+                    ? 'Uso del mes: $percent%'
+                    : 'Análisis: ${usage.analysesUsed}',
             style: TextStyle(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.w600,

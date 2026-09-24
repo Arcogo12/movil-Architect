@@ -70,15 +70,22 @@ class HomeProjectCard extends StatelessWidget {
     super.key,
     required this.project,
     required this.onTap,
+    this.pinned = false,
+    this.onPin,
+    this.onDelete,
   });
 
   final HomeProject project;
   final VoidCallback onTap;
+  final bool pinned;
+  final VoidCallback? onPin;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final progress = (project.progressPercent / 100).clamp(0.0, 1.0);
+    final hasMenu = onPin != null || onDelete != null;
 
     return Material(
       color: Theme.of(context).cardColor,
@@ -94,19 +101,88 @@ class HomeProjectCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      project.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: Row(
+                      children: [
+                        if (pinned) ...[
+                          Icon(
+                            Icons.push_pin,
+                            size: 16,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(
+                          child: Text(
+                            project.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: scheme.onSurface,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   HomeStatusChip(status: project.status),
+                  if (hasMenu)
+                    PopupMenuButton<String>(
+                      tooltip: 'Opciones',
+                      padding: EdgeInsets.zero,
+                      offset: const Offset(0, 36),
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'pin':
+                            onPin?.call();
+                          case 'delete':
+                            onDelete?.call();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        if (onPin != null)
+                          PopupMenuItem(
+                            value: 'pin',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  pinned
+                                      ? Icons.push_pin
+                                      : Icons.push_pin_outlined,
+                                  size: 20,
+                                  color: scheme.onSurface,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(pinned ? 'Desfijar' : 'Fijar'),
+                              ],
+                            ),
+                          ),
+                        if (onDelete != null)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: Colors.red,
+                                ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Eliminar',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                 ],
               ),
               if (project.clientName.isNotEmpty) ...[

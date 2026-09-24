@@ -75,7 +75,7 @@ class DashboardData {
     return const DashboardData(
       heroTitle: 'Dashboard',
       heroSubtitle: 'Tus planos, revisiones y alertas en un solo lugar.',
-      askPlaceholder: 'Pregunta algo sobre tu plano',
+      askPlaceholder: 'Dime tu pregunta',
       isPro: true,
       metrics: [
         DashboardMetric(

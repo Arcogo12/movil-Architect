@@ -492,7 +492,7 @@ class _DashboardViewState extends State<DashboardView> {
                       isSending: isSending,
                       hintText: _controller.hasPendingPlano
                           ? 'Indica qué revisar en tu plano'
-                          : 'Pregunta algo sobre tu plano',
+                          : 'Dime tu pregunta',
                     ),
                     if (_controller.askErrorMessage != null)
                       Padding(

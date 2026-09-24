@@ -226,7 +226,7 @@ class DashboardAskBar extends StatefulWidget {
     this.onAttachTap,
     this.onSendTap,
     this.isSending = false,
-    this.hintText = 'Pregunta algo sobre tu plano',
+    this.hintText = '',
   });
 
   final TextEditingController controller;
